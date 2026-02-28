@@ -19,10 +19,11 @@ CREATE TABLE IF NOT EXISTS data_usage (
 def to_mb(_bytes):
     return _bytes / 1024 ** 2
 
-def log_net_usage(wait=None, dry_run=None):
+def log_net_usage(wait=None, dry_run=False):
     wait = 3 if wait is None else wait
 
     old = psutil.net_io_counters()
+    count = 0
 
     while True:
         print(f"\nWait {wait} seconds...\n")
@@ -44,11 +45,15 @@ def log_net_usage(wait=None, dry_run=None):
 
         print("-" * 40)
 
-        if not dry_run:
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        # only log when not dry-run and download/upload not 0
+        if not dry_run and (download or upload):
+            count += 1
             cur.execute("INSERT INTO data_usage (timestamp, bytes_sent, bytes_recv) VALUES (?, ?, ?)",
                 (int(time.time()), upload, download))
-            conn.commit()
+
+            if count >= 50:
+                conn.commit()
+                count = 0
 
         old = new
 
@@ -65,4 +70,6 @@ if args.command == "record":
     try:
         log_net_usage(args.wait, args.dry_run)
     except KeyboardInterrupt:
+        conn.commit()
+        conn.close()
         sys.exit(130)
