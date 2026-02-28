@@ -70,6 +70,28 @@ def log_net_usage(wait=None, dry_run=False, verbose=False):
 
         old = new
 
+
+def fetch_net_usage(today=False):
+
+    if today:
+        rows = cur.execute("""
+                SELECT 
+                    COALESCE(SUM(bytes_sent), 0) AS total_sent,
+                    COALESCE(SUM(bytes_recv), 0) AS total_recv
+                FROM data_usage
+                WHERE timestamp >= strftime('%s', 'now', 'start of day')
+                AND timestamp <  strftime('%s', 'now', 'start of day', '+1 day');
+            """).fetchall()
+ 
+        if rows:
+            upload, download = rows[0]
+
+            print(f"{"-" * 5} Today {"-" * 5}")
+            print(f"Upload   : {round(to_mb(upload))} MB")
+            print(f"Download : {round(to_mb(download))} MB")
+            print("-"*17)
+
+
 parser = argparse.ArgumentParser(
     prog="nusgmon",
     description=(
@@ -83,8 +105,12 @@ record_parser = subparsers.add_parser("record")
 record_parser.add_argument("-w", "--wait", type=float, help="record after certain seconds (default: 3)")
 record_parser.add_argument("-d", "--dry-run", action="store_true", help="prevent logging to database")
 record_parser.add_argument("-v", "--verbose", action="store_true", help="enable verbose output")
+
+parser.add_argument("--today", action="store_true", help="show today's usage")
 parser.add_argument("-V", "--version", action="version", version="1.0.0")
+
 args = parser.parse_args()
+
 
 if args.command == "record":
     try:
@@ -92,3 +118,6 @@ if args.command == "record":
     finally:
         conn.commit()
         conn.close()
+
+if args.today:
+    fetch_net_usage(args.today)
