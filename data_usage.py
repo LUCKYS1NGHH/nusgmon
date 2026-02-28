@@ -2,6 +2,8 @@ import psutil
 import time
 import sqlite3
 from datetime import datetime
+import argparse
+import sys
 
 conn = sqlite3.connect("net_usage.db")
 cur = conn.cursor()
@@ -14,12 +16,12 @@ CREATE TABLE IF NOT EXISTS data_usage (
     bytes_recv INTEGER NOT NULL
 )""")
 
-old = psutil.net_io_counters()
-
 def to_mb(_bytes):
     return _bytes / 1024 ** 2
 
 def log_net_usage():
+    old = psutil.net_io_counters()
+
     while True:
         print("\nWait 3 seconds...\n")
         time.sleep(3)
@@ -46,3 +48,13 @@ def log_net_usage():
         conn.commit()
 
         old = new
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-r", "--record", action="store_true", help="start recording data usage")
+args = parser.parse_args()
+
+if args.record:
+    try:
+        log_net_usage()
+    except KeyboardInterrupt:
+        sys.exit(130)
