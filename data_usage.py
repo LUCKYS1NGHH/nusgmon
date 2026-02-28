@@ -53,12 +53,15 @@ def log_net_usage(wait=None, dry_run=None):
         old = new
 
 parser = argparse.ArgumentParser()
-parser.add_argument("-r", "--record", action="store_true", help="start recording data usage")
-parser.add_argument("-w", "--wait", type=float, help="record after certain seconds (default: 3)")
-parser.add_argument("-d", "--dry-run", action="store_true", help="prevent logging to database")
+
+subparsers = parser.add_subparsers(dest="command")
+record_parser = subparsers.add_parser("record")
+
+record_parser.add_argument("-w", "--wait", type=float, help="record after certain seconds (default: 3)")
+record_parser.add_argument("-d", "--dry-run", action="store_true", help="prevent logging to database")
 args = parser.parse_args()
 
-if args.record:
+if args.command == "record":
     try:
         log_net_usage(args.wait, args.dry_run)
     except KeyboardInterrupt:
