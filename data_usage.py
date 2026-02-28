@@ -19,12 +19,14 @@ CREATE TABLE IF NOT EXISTS data_usage (
 def to_mb(_bytes):
     return _bytes / 1024 ** 2
 
-def log_net_usage():
+def log_net_usage(wait=None):
+    wait = 3 if wait is None else wait
+
     old = psutil.net_io_counters()
 
     while True:
-        print("\nWait 3 seconds...\n")
-        time.sleep(3)
+        print(f"\nWait {wait} seconds...\n")
+        time.sleep(wait)
 
         new = psutil.net_io_counters()
 
@@ -51,10 +53,11 @@ def log_net_usage():
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-r", "--record", action="store_true", help="start recording data usage")
+parser.add_argument("-w", "--wait", type=float, help="record after certain time")
 args = parser.parse_args()
 
 if args.record:
     try:
-        log_net_usage()
+        log_net_usage(args.wait)
     except KeyboardInterrupt:
         sys.exit(130)
