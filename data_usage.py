@@ -56,7 +56,7 @@ def log_net_usage(wait=None, dry_run=False, verbose=False):
 
         old = new
 
-parser = argparse.ArgumentParser()
+parser = argparse.ArgumentParser(description="Network usage monitoring tool", formatter_class=argparse.RawTextHelpFormatter)
 
 subparsers = parser.add_subparsers(dest="command")
 record_parser = subparsers.add_parser("record")
