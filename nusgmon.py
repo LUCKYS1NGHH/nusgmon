@@ -4,8 +4,14 @@ import sqlite3
 from datetime import datetime
 import argparse
 import sys
+import os
 
-conn = sqlite3.connect("net_usage.db")
+DIR = os.path.expanduser("~/.nusgmon")
+DB_FILE = os.path.join(DIR, "db.sqlite")
+
+os.makedirs(DIR, exist_ok=True)
+
+conn = sqlite3.connect(DB_FILE)
 cur = conn.cursor()
 
 cur.execute("""
