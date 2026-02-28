@@ -37,7 +37,7 @@ def log_net_usage(wait=None, dry_run=False, verbose=False):
         upload = new.bytes_sent - old.bytes_sent
 
         if verbose:
-            print("-" * 37)
+            print(f"{"-" * 8} {datetime.now().strftime("%Y-%m-%d %H:%M:%S")} {"-" * 8}")
             print(f"Total Megabytes Received : {round(to_mb(new.bytes_recv))} MB")
             print(f"Total Megabytes Sent     : {round(to_mb(new.bytes_sent))} MB")
             print(f"Download                 : {(download / wait) / 1024:.2f} KB/s")
