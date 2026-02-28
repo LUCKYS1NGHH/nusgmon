@@ -70,7 +70,12 @@ def log_net_usage(wait=None, dry_run=False, verbose=False):
 
         old = new
 
-parser = argparse.ArgumentParser(description="Network usage monitoring tool", formatter_class=argparse.RawTextHelpFormatter)
+parser = argparse.ArgumentParser(
+    prog="nusgmon",
+    description=(
+        "Network usage monitoring tool\n"
+        "Record live bandwidth usage.\n"
+    ), formatter_class=argparse.RawTextHelpFormatter)
 
 subparsers = parser.add_subparsers(dest="command")
 record_parser = subparsers.add_parser("record")
