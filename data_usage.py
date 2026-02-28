@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS data_usage (
 def to_mb(_bytes):
     return _bytes / 1024 ** 2
 
-def log_net_usage(wait=None):
+def log_net_usage(wait=None, dry_run=None):
     wait = 3 if wait is None else wait
 
     old = psutil.net_io_counters()
@@ -44,20 +44,22 @@ def log_net_usage(wait=None):
 
         print("-" * 40)
 
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        cur.execute("INSERT INTO data_usage (timestamp, bytes_sent, bytes_recv) VALUES (?, ?, ?)",
-            (int(time.time()), upload, download))
-        conn.commit()
+        if not dry_run:
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            cur.execute("INSERT INTO data_usage (timestamp, bytes_sent, bytes_recv) VALUES (?, ?, ?)",
+                (int(time.time()), upload, download))
+            conn.commit()
 
         old = new
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-r", "--record", action="store_true", help="start recording data usage")
-parser.add_argument("-w", "--wait", type=float, help="record after certain time")
+parser.add_argument("-w", "--wait", type=float, help="record after certain seconds (default: 3)")
+parser.add_argument("-d", "--dry-run", action="store_true", help="prevent logging to database")
 args = parser.parse_args()
 
 if args.record:
     try:
-        log_net_usage(args.wait)
+        log_net_usage(args.wait, args.dry_run)
     except KeyboardInterrupt:
         sys.exit(130)
