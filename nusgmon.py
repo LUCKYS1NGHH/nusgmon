@@ -5,10 +5,11 @@ from datetime import datetime
 import argparse
 import sys
 import os
+import signal
+
 
 DIR = os.path.expanduser("~/.nusgmon")
 DB_FILE = os.path.join(DIR, "db.sqlite")
-
 os.makedirs(DIR, exist_ok=True)
 
 conn = sqlite3.connect(DB_FILE)
@@ -22,6 +23,13 @@ CREATE TABLE IF NOT EXISTS data_usage (
     bytes_recv INTEGER NOT NULL
 )""")
 
+running = True
+def handle_term(signum, frame):
+    global running
+    running = False
+
+signal.signal(signal.SIGTERM, handle_term)
+
 def to_mb(_bytes):
     return _bytes / 1024 ** 2
 
@@ -31,7 +39,7 @@ def log_net_usage(wait=None, dry_run=False, verbose=False):
     old = psutil.net_io_counters()
     count = 0
 
-    while True:
+    while running:
         if verbose:
             print(f"\nWait {wait} seconds...\n")
         time.sleep(wait)
@@ -76,7 +84,6 @@ args = parser.parse_args()
 if args.command == "record":
     try:
         log_net_usage(args.wait, args.dry_run, args.verbose)
-    except KeyboardInterrupt:
+    finally:
         conn.commit()
         conn.close()
-        sys.exit(130)
