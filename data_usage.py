@@ -2,8 +2,11 @@ import psutil
 
 data = psutil.net_io_counters()
 
-mb_sent = data.bytes_sent / 1024 ** 2
-mb_recv = data.bytes_recv / 1024 ** 2
+def to_mb(_bytes):
+    return _bytes / 1024 ** 2
 
-print(f"Megabytes sent: {mb_sent:.2f}M")
-print(f"Megabytes received: {mb_recv:.2f}M")
+mb_sent = to_mb(data.bytes_sent)
+mb_recv = to_mb(data.bytes_recv)
+
+print(f"Megabytes sent: {round(mb_sent)}M")
+print(f"Megabytes received: {round(mb_recv)}M")
