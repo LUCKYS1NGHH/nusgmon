@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import psutil
 import time
 import sqlite3
@@ -71,7 +72,7 @@ def log_net_usage(wait=None, dry_run=False, verbose=False):
         old = new
 
 
-def fetch_net_usage(today=False):
+def fetch_net_usage(today=False, thisweek=False):
 
     if today:
         rows = cur.execute("""
@@ -91,6 +92,24 @@ def fetch_net_usage(today=False):
             print(f"Download : {round(to_mb(download))} MB")
             print("-"*17)
 
+    elif thisweek:
+        rows = cur.execute("""
+                SELECT
+                    COALESCE(SUM(bytes_sent), 0),
+                    COALESCE(SUM(bytes_recv), 0)
+                FROM data_usage
+                WHERE timestamp >= strftime('%s', 'now', 'weekday 0', '-6 days')
+                AND timestamp <  strftime('%s', 'now', 'weekday 0', '+1 day');
+            """).fetchall()
+
+        if rows:
+            upload, download = rows[0]
+
+            print(f"{"-" * 6} This Week {"-" * 6}")
+            print(f"Upload   : {round(to_mb(upload))} MB")
+            print(f"Download : {round(to_mb(download))} MB")
+            print("-"*23)
+
 
 parser = argparse.ArgumentParser(
     prog="nusgmon",
@@ -107,6 +126,7 @@ record_parser.add_argument("-d", "--dry-run", action="store_true", help="prevent
 record_parser.add_argument("-v", "--verbose", action="store_true", help="enable verbose output")
 
 parser.add_argument("--today", action="store_true", help="show today's usage")
+parser.add_argument("--thisweek", action="store_true", help="show this week's usage")
 parser.add_argument("-V", "--version", action="version", version="1.0.0")
 
 args = parser.parse_args()
@@ -119,5 +139,8 @@ if args.command == "record":
         conn.commit()
         conn.close()
 
-if args.today:
-    fetch_net_usage(args.today)
+elif args.today:
+    fetch_net_usage(today=args.today)
+
+elif args.thisweek:
+    fetch_net_usage(thisweek=args.thisweek)
