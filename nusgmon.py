@@ -100,39 +100,49 @@ def fetch_net_usage(today=False, thisweek=False):
 
     if today:
         rows = cur.execute("""
-                SELECT 
-                    COALESCE(SUM(bytes_sent), 0) AS total_sent,
-                    COALESCE(SUM(bytes_recv), 0) AS total_recv
-                FROM data_usage
-                WHERE timestamp >= strftime('%s', 'now', 'start of day')
-                AND timestamp <  strftime('%s', 'now', 'start of day', '+1 day');
-            """).fetchall()
- 
-        if rows:
-            upload, download = rows[0]
+            SELECT bytes_sent, bytes_recv
+            FROM data_usage
+            WHERE timestamp >= strftime('%s', 'now', 'start of day')
+              AND timestamp <  strftime('%s', 'now', 'start of day', '+1 day')
+            ORDER BY timestamp ASC;
+        """).fetchall()
+
+        if len(rows) >= 2:
+            first_sent, first_recv = rows[0]
+            last_sent, last_recv = rows[-1]
+
+            upload = last_sent - first_sent
+            download = last_recv - first_recv
 
             print(f"{"-" * 5} Today {"-" * 5}")
             print(f"Upload   : {round(to_mb(upload))} MB")
             print(f"Download : {round(to_mb(download))} MB")
-            print("-"*17)
+            print("-" * 17)
+        else:
+            print("Not enough data for today.")
 
     elif thisweek:
         rows = cur.execute("""
-                SELECT
-                    COALESCE(SUM(bytes_sent), 0),
-                    COALESCE(SUM(bytes_recv), 0)
-                FROM data_usage
-                WHERE timestamp >= strftime('%s', 'now', 'weekday 0', '-6 days')
-                AND timestamp <  strftime('%s', 'now', 'weekday 0', '+1 day');
-            """).fetchall()
+            SELECT bytes_sent, bytes_recv
+            FROM data_usage
+            WHERE timestamp >= strftime('%s', 'now', 'weekday 0', '-6 days')
+              AND timestamp <  strftime('%s', 'now', 'weekday 0', '+1 day')
+            ORDER BY timestamp ASC;
+        """).fetchall()
 
-        if rows:
-            upload, download = rows[0]
+        if len(rows) >= 2:
+            first_sent, first_recv = rows[0]
+            last_sent, last_recv = rows[-1]
+
+            upload = last_sent - first_sent
+            download = last_recv - first_recv
 
             print(f"{"-" * 6} This Week {"-" * 6}")
             print(f"Upload   : {round(to_mb(upload))} MB")
             print(f"Download : {round(to_mb(download))} MB")
-            print("-"*23)
+            print("-" * 23)
+        else:
+            print("Not enough data for this week.")
 
 
 parser = argparse.ArgumentParser(
