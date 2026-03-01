@@ -79,11 +79,10 @@ def log_net_usage(wait=None, dry_run=False, verbose=False, json_output=False):
             print(f"Upload                   : {(upload / wait) / 1024:.2f} KB/s")
             print("-" * 37)
 
-        # only log when not dry-run and download/upload not 0
-        if not dry_run and (download or upload):
+        if not dry_run:
             count += 1
             cur.execute("INSERT INTO data_usage (timestamp, bytes_sent, bytes_recv) VALUES (?, ?, ?)",
-                (int(time.time()), upload, download))
+                (int(time.time()), new.bytes_sent, new.bytes_recv))
 
             if count >= 50:
                 conn.commit()
