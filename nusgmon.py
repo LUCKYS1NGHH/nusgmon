@@ -7,7 +7,7 @@ import argparse
 import sys
 import os
 import signal
-
+import json
 
 DIR = os.path.expanduser("~/.nusgmon")
 DB_FILE = os.path.join(DIR, "db.sqlite")
@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS data_usage (
     bytes_recv INTEGER NOT NULL
 )""")
 
+
 running = True
 def handle_term(signum, frame):
     global running
@@ -34,14 +35,30 @@ signal.signal(signal.SIGTERM, handle_term)
 def to_mb(_bytes):
     return _bytes / 1024 ** 2
 
-def log_net_usage(wait=None, dry_run=False, verbose=False):
+def current_data_json_output(total_recv, total_sent, download, upload):
+    """Just return the current data with pretty json"""
+
+    output = {
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'total_bytes_sent': total_sent,
+            'total_bytes_sent_mb': round(to_mb(total_sent)),
+            'total_bytes_recv': total_recv,
+            'total_bytes_recv_mb': round(to_mb(total_recv)),
+            'download_kbps': download,
+            'upload_kbps': upload
+    }
+    pretty = json.dumps(output, indent=3)
+    return pretty
+
+
+def log_net_usage(wait=None, dry_run=False, verbose=False, json_output=False):
     wait = 3 if wait is None else wait
 
     old = psutil.net_io_counters()
     count = 0
 
     while running:
-        if verbose:
+        if verbose and not json_output:
             print(f"\nWait {wait} seconds...\n")
         time.sleep(wait)
 
@@ -51,7 +68,10 @@ def log_net_usage(wait=None, dry_run=False, verbose=False):
         download = new.bytes_recv - old.bytes_recv
         upload = new.bytes_sent - old.bytes_sent
 
-        if verbose:
+        if json_output:
+            print(current_data_json_output(new.bytes_recv, new.bytes_sent, download, upload))
+
+        elif verbose:
             print(f"{"-" * 8} {datetime.now().strftime("%Y-%m-%d %H:%M:%S")} {"-" * 8}")
             print(f"Total Megabytes Received : {round(to_mb(new.bytes_recv))} MB")
             print(f"Total Megabytes Sent     : {round(to_mb(new.bytes_sent))} MB")
@@ -124,6 +144,7 @@ record_parser = subparsers.add_parser("record")
 record_parser.add_argument("-w", "--wait", type=float, help="record after certain seconds (default: 3)")
 record_parser.add_argument("-d", "--dry-run", action="store_true", help="prevent logging to database")
 record_parser.add_argument("-v", "--verbose", action="store_true", help="enable verbose output")
+record_parser.add_argument("--json", action="store_true", help="output data JSON format")
 
 parser.add_argument("--today", action="store_true", help="show today's usage")
 parser.add_argument("--thisweek", action="store_true", help="show this week's usage")
@@ -134,7 +155,7 @@ args = parser.parse_args()
 
 if args.command == "record":
     try:
-        log_net_usage(args.wait, args.dry_run, args.verbose)
+        log_net_usage(args.wait, args.dry_run, args.verbose, args.json)
     finally:
         conn.commit()
         conn.close()
