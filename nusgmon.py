@@ -64,6 +64,11 @@ def log_net_usage(wait=None, dry_run=False, verbose=False, json_output=False):
 
         new = psutil.net_io_counters()
 
+        if new.bytes_recv < old.bytes_recv or new.bytes_sent < old.bytes_sent:
+            # reboot or interface reset
+            old = new
+            continue
+
         # speed calculate
         download = new.bytes_recv - old.bytes_recv
         upload = new.bytes_sent - old.bytes_sent
