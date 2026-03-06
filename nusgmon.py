@@ -50,6 +50,21 @@ def current_data_json_output(total_recv, total_sent, download, upload):
     pretty = json.dumps(output, indent=3)
     return pretty
 
+def calculate_usage(rows):
+    total_upload = 0
+    total_download = 0
+
+    for i in range(1, len(rows)):
+        prev_sent, prev_recv = rows[i - 1]
+        curr_sent, curr_recv = rows[i]
+
+        if curr_sent >= prev_sent:
+            total_upload += curr_sent - prev_sent
+
+        if curr_recv >= prev_recv:
+            total_download += curr_recv - prev_recv
+
+    return total_upload, total_download
 
 def log_net_usage(wait=None, dry_run=False, verbose=False, json_output=False):
     wait = 3 if wait is None else wait
@@ -96,7 +111,7 @@ def log_net_usage(wait=None, dry_run=False, verbose=False, json_output=False):
         old = new
 
 
-def fetch_net_usage(today=False, thisweek=False):
+def fetch_net_usage(today=False, thisweek=False, month=False):
 
     if today:
         rows = cur.execute("""
@@ -108,11 +123,7 @@ def fetch_net_usage(today=False, thisweek=False):
         """).fetchall()
 
         if len(rows) >= 2:
-            first_sent, first_recv = rows[0]
-            last_sent, last_recv = rows[-1]
-
-            upload = last_sent - first_sent
-            download = last_recv - first_recv
+            upload, download = calculate_usage(rows)
 
             print(f"{"-" * 5} Today {"-" * 5}")
             print(f"Upload   : {round(to_mb(upload))} MB")
@@ -131,11 +142,7 @@ def fetch_net_usage(today=False, thisweek=False):
         """).fetchall()
 
         if len(rows) >= 2:
-            first_sent, first_recv = rows[0]
-            last_sent, last_recv = rows[-1]
-
-            upload = last_sent - first_sent
-            download = last_recv - first_recv
+            upload, download = calculate_usage(rows) 
 
             print(f"{"-" * 6} This Week {"-" * 6}")
             print(f"Upload   : {round(to_mb(upload))} MB")
@@ -144,6 +151,27 @@ def fetch_net_usage(today=False, thisweek=False):
         else:
             print("Not enough data for this week.")
 
+    elif month:
+        current_year = datetime.now().year
+        m = month if month else datetime.now().month
+
+        rows = cur.execute("""
+            SELECT bytes_sent, bytes_recv
+            FROM data_usage
+            WHERE strftime('%m', timestamp, 'unixepoch') = ?
+              AND strftime('%Y', timestamp, 'unixepoch') = ?
+            ORDER BY timestamp ASC;
+        """, (f"{int(m):02d}", str(current_year))).fetchall()
+
+        if len(rows) >= 2:
+            upload, download = calculate_usage(rows)
+
+            print(f"{'-' * 6} Month {int(m)} {'-' * 6}")
+            print(f"Upload   : {round(to_mb(upload))} MB")
+            print(f"Download : {round(to_mb(download))} MB")
+            print("-" * 23)
+        else:
+            print("Not enough data for this month.")
 
 parser = argparse.ArgumentParser(
     prog="nusgmon",
@@ -162,6 +190,7 @@ record_parser.add_argument("--json", action="store_true", help="output data JSON
 
 parser.add_argument("--today", action="store_true", help="show today's usage")
 parser.add_argument("--thisweek", action="store_true", help="show this week's usage")
+parser.add_argument("--month", nargs="?", const=datetime.now().month, type=int, choices=range(1, 13), help="show any month's usage (default: current month)")
 parser.add_argument("-V", "--version", action="version", version="1.0.0")
 
 args = parser.parse_args()
@@ -179,3 +208,6 @@ elif args.today:
 
 elif args.thisweek:
     fetch_net_usage(thisweek=args.thisweek)
+
+elif args.month:
+    fetch_net_usage(month=args.month)
