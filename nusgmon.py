@@ -2,12 +2,18 @@
 import psutil
 import time
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 import argparse
 import sys
 import os
 import signal
 import json
+from collections import defaultdict
+
+BLUE = "\33[94m"
+GREEN = "\033[32m"
+RESET = "\033[0m"
+
 
 DIR = os.path.expanduser("~/.nusgmon")
 DB_FILE = os.path.join(DIR, "db.sqlite")
@@ -111,67 +117,111 @@ def log_net_usage(wait=None, dry_run=False, verbose=False, json_output=False):
         old = new
 
 
+def draw_graph(data, title):
+    max_val = max(
+        max(v["up"], v["down"]) for v in data.values()
+    ) if data else 0
+
+    width = 32
+    scale = max_val / width if max_val > width else 1
+
+    print(f"\n  {title}")
+    print(" ", "-" * (len(title) + 2))
+    print(f"  {GREEN}█ Upload{RESET}  {BLUE}█ Download{RESET}\n")
+
+    for label, val in data.items():
+        up = val["up"]
+        down = val["down"]
+
+        up_bar = "█" * int(up / scale)
+        down_bar = "█" * int(down / scale)
+
+        print(
+            f"{label:>5} "
+            f"{GREEN}{up_bar}{RESET}"
+            f"{BLUE}{down_bar}{RESET} "
+            f"{up:>4.0f}↑ {down:>4.0f}↓ MB"
+        )
+
 def fetch_net_usage(today=False, thisweek=False, month=False):
 
-    if today:
-        rows = cur.execute("""
-            SELECT bytes_sent, bytes_recv
-            FROM data_usage
-            WHERE timestamp >= strftime('%s', 'now', 'start of day')
-              AND timestamp <  strftime('%s', 'now', 'start of day', '+1 day')
-            ORDER BY timestamp ASC;
-        """).fetchall()
+    rows = cur.execute("""
+        SELECT timestamp, bytes_sent, bytes_recv
+        FROM data_usage
+        ORDER BY timestamp ASC
+    """).fetchall()
 
-        if len(rows) >= 2:
-            upload, download = calculate_usage(rows)
+    if len(rows) < 2:
+        print("Not enough data.")
+        return
 
-            print(f"{"-" * 5} Today {"-" * 5}")
-            print(f"Upload   : {round(to_mb(upload))} MB")
-            print(f"Download : {round(to_mb(download))} MB")
-            print("-" * 17)
+    buckets = defaultdict(lambda: {"up": 0, "down": 0})
+
+    now = datetime.now()
+
+    for i in range(1, len(rows)):
+        t1, s1, r1 = rows[i-1]
+        t2, s2, r2 = rows[i]
+
+        up = max(0, s2 - s1)
+        down = max(0, r2 - r1)
+
+        dt = datetime.fromtimestamp(t2)
+
+        if today:
+            if dt.date() != now.date():
+                continue
+            key = f"{dt.hour:02d}:00"
+
+        elif thisweek:
+
+            start_of_week = now - timedelta(days=now.weekday())
+            start_of_week = start_of_week.replace(hour=0, minute=0, second=0, microsecond=0)
+            end_of_week = start_of_week + timedelta(days=7)
+
+            if not (start_of_week <= dt < end_of_week):
+                continue
+
+            key = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"][dt.weekday()]
+
+        elif month:
+            if dt.year != now.year or dt.month != now.month:
+                continue
+            key = str(dt.day)
+
         else:
-            print("Not enough data for today.")
+            continue
+
+        buckets[key]["up"] += up
+        buckets[key]["down"] += down
+
+    data = {}
+
+    for k, v in buckets.items():
+        data[k] = {
+            "up": to_mb(v["up"]),
+            "down": to_mb(v["down"])
+        }
+
+    if not data:
+        print("No data for this period.")
+        return
+
+    if today:
+        title = "Today Usage"
+        data = dict(sorted(data.items()))
 
     elif thisweek:
-        rows = cur.execute("""
-            SELECT bytes_sent, bytes_recv
-            FROM data_usage
-            WHERE timestamp >= strftime('%s', 'now', 'weekday 0', '-6 days')
-              AND timestamp <  strftime('%s', 'now', 'weekday 0', '+1 day')
-            ORDER BY timestamp ASC;
-        """).fetchall()
+        title = "This Week Usage"
+        order = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]
+        data = {d: data[d] for d in order if d in data}
 
-        if len(rows) >= 2:
-            upload, download = calculate_usage(rows) 
+    else:
+        title = f"Month {now.month} Usage"
+        data = dict(sorted(data.items(), key=lambda x: int(x[0])))
 
-            print(f"{"-" * 6} This Week {"-" * 6}")
-            print(f"Upload   : {round(to_mb(upload))} MB")
-            print(f"Download : {round(to_mb(download))} MB")
-            print("-" * 23)
-        else:
-            print("Not enough data for this week.")
+    draw_graph(data, title)
 
-    elif month:
-        current_year = datetime.now().year
-        m = month if month else datetime.now().month
-
-        rows = cur.execute("""
-            SELECT bytes_sent, bytes_recv
-            FROM data_usage
-            WHERE strftime('%m', timestamp, 'unixepoch') = ?
-              AND strftime('%Y', timestamp, 'unixepoch') = ?
-            ORDER BY timestamp ASC;
-        """, (f"{int(m):02d}", str(current_year))).fetchall()
-
-        if len(rows) >= 2:
-            upload, download = calculate_usage(rows)
-
-            print(f"{'-' * 6} Month {int(m)} {'-' * 6}")
-            print(f"Upload   : {round(to_mb(upload))} MB")
-            print(f"Download : {round(to_mb(download))} MB")
-            print("-" * 23)
-        else:
-            print("Not enough data for this month.")
 
 parser = argparse.ArgumentParser(
     prog="nusgmon",
