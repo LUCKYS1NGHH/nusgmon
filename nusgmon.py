@@ -10,7 +10,8 @@ import signal
 import json
 from collections import defaultdict
 
-BLUE = "\33[94m"
+
+BLUE = "\033[94m"
 GREEN = "\033[32m"
 RESET = "\033[0m"
 
@@ -145,7 +146,7 @@ def draw_graph(data, title, total):
     print(f"\nTotal: {total['up']}↑ {total['down']}↓ MB")
 
 
-def fetch_net_usage(today=False, thisweek=False, month=False):
+def fetch_net_usage(today=False, thisweek=False, month=False, json_output=False):
 
     rows = cur.execute("""
         SELECT timestamp, bytes_sent, bytes_recv
@@ -232,7 +233,13 @@ def fetch_net_usage(today=False, thisweek=False, month=False):
         "down": round(to_mb(total_down))
     }
 
-    draw_graph(data, title, total)
+    if json_output:
+        data["total"] = []
+        data["total"].append(total)
+        pretty = json.dumps(data, indent=3)
+        print(pretty)
+    else:
+        draw_graph(data, title, total)
 
 
 parser = argparse.ArgumentParser(
@@ -253,6 +260,7 @@ record_parser.add_argument("--json", action="store_true", help="output data JSON
 parser.add_argument("--today", action="store_true", help="show today's usage")
 parser.add_argument("--thisweek", action="store_true", help="show this week's usage")
 parser.add_argument("--month", nargs="?", const=datetime.now().month, type=int, choices=range(1, 13), help="show any month's usage (default: current month)")
+parser.add_argument("--json", action="store_true", help="output data JSON format")
 parser.add_argument("-V", "--version", action="version", version="1.0.0")
 
 args = parser.parse_args()
@@ -266,10 +274,13 @@ if args.command == "record":
         conn.close()
 
 elif args.today:
-    fetch_net_usage(today=args.today)
+    fetch_net_usage(today=args.today, json_output=args.json)
 
 elif args.thisweek:
-    fetch_net_usage(thisweek=args.thisweek)
+    fetch_net_usage(thisweek=args.thisweek, json_output=args.json)
 
 elif args.month:
-    fetch_net_usage(month=args.month)
+    fetch_net_usage(month=args.month, json_output=args.json)
+
+else:
+    fetch_net_usage(today=True)
