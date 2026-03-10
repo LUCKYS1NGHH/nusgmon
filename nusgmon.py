@@ -117,7 +117,7 @@ def log_net_usage(wait=None, dry_run=False, verbose=False, json_output=False):
         old = new
 
 
-def draw_graph(data, title):
+def draw_graph(data, title, total):
     max_val = max(
         max(v["up"], v["down"]) for v in data.values()
     ) if data else 0
@@ -142,6 +142,8 @@ def draw_graph(data, title):
             f"{BLUE}{down_bar}{RESET} "
             f"{up:>4.0f}↑ {down:>4.0f}↓ MB"
         )
+    print(f"\nTotal: {total['up']}↑ {total['down']}↓ MB")
+
 
 def fetch_net_usage(today=False, thisweek=False, month=False):
 
@@ -156,6 +158,9 @@ def fetch_net_usage(today=False, thisweek=False, month=False):
         return
 
     buckets = defaultdict(lambda: {"up": 0, "down": 0})
+
+    total_up = 0
+    total_down = 0
 
     now = datetime.now()
 
@@ -174,7 +179,6 @@ def fetch_net_usage(today=False, thisweek=False, month=False):
             key = f"{dt.hour:02d}:00"
 
         elif thisweek:
-
             start_of_week = now - timedelta(days=now.weekday())
             start_of_week = start_of_week.replace(hour=0, minute=0, second=0, microsecond=0)
             end_of_week = start_of_week + timedelta(days=7)
@@ -194,6 +198,9 @@ def fetch_net_usage(today=False, thisweek=False, month=False):
 
         buckets[key]["up"] += up
         buckets[key]["down"] += down
+
+        total_up += up
+        total_down += down
 
     data = {}
 
@@ -220,7 +227,12 @@ def fetch_net_usage(today=False, thisweek=False, month=False):
         title = f"Month {now.month} Usage"
         data = dict(sorted(data.items(), key=lambda x: int(x[0])))
 
-    draw_graph(data, title)
+    total = {
+        "up": round(to_mb(total_up)),
+        "down": round(to_mb(total_down))
+    }
+
+    draw_graph(data, title, total)
 
 
 parser = argparse.ArgumentParser(
