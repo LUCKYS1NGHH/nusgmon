@@ -37,7 +37,10 @@ def handle_term(signum, frame):
     global running
     running = False
 
+
 signal.signal(signal.SIGTERM, handle_term)
+signal.signal(signal.SIGINT, handle_term)
+
 
 def to_mb(_bytes):
     return _bytes / 1024 ** 2
