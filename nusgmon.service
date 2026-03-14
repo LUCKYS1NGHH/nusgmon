@@ -1,0 +1,27 @@
+# /etc/systemd/system/template.service
+[Unit]
+Description=System network usage monitoring tool
+Documentation=
+Requires=
+After=
+
+[Service]
+# --- App working dir & env ---
+WorkingDirectory=/home/xingyun/Downloads/Playground
+
+# --- Start/Stop commands ---
+ExecStart=/home/xingyun/.myenv/bin/python3 /usr/local/bin/nusgmon record -w 5
+# Example:
+# ExecStart=/usr/bin/env /opt/venv/bin/python /opt/myapp/app.py --flag
+ExecReload=/bin/kill -HUP $MAINPID
+ExecStop=/bin/kill -TERM $MAINPID
+
+# --- Process behavior ---
+Type=simple
+Restart=on-failure
+RestartSec=3
+TimeoutStartSec=30
+TimeoutStopSec=15
+
+[Install]
+WantedBy=default.target
