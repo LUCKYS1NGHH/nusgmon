@@ -114,7 +114,7 @@ def log_net_usage(wait=None, dry_run=False, verbose=False, json_output=False):
             cur.execute("INSERT INTO data_usage (timestamp, bytes_sent, bytes_recv) VALUES (?, ?, ?)",
                 (int(time.time()), new.bytes_sent, new.bytes_recv))
 
-            if count >= 50:
+            if count >= 15:
                 conn.commit()
                 count = 0
 
