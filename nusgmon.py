@@ -42,6 +42,9 @@ signal.signal(signal.SIGTERM, handle_term)
 def to_mb(_bytes):
     return _bytes / 1024 ** 2
 
+def to_gb(_bytes):
+    return _bytes / (1024 ** 3)
+
 def current_data_json_output(total_recv, total_sent, download, upload):
     """Just return the current data with pretty json"""
 
@@ -62,7 +65,7 @@ def calculate_usage(rows):
     total_download = 0
 
     for i in range(1, len(rows)):
-        prev_sent, prev_recv = rows[i - 1]
+        prev_sent, prev_recv = rows[i-1]
         curr_sent, curr_recv = rows[i]
 
         if curr_sent >= prev_sent:
@@ -118,7 +121,7 @@ def log_net_usage(wait=None, dry_run=False, verbose=False, json_output=False):
         old = new
 
 
-def draw_graph(data, title, total):
+def draw_graph(data, title, total, gb_show=False):
     max_val = max(
         max(v["up"], v["down"]) for v in data.values()
     ) if data else 0
@@ -129,6 +132,8 @@ def draw_graph(data, title, total):
     print(f"\n  {title}")
     print(" ", "-" * (len(title) + 2))
     print(f"  {GREEN}█ Upload{RESET}  {BLUE}█ Download{RESET}\n")
+
+    unit = "GB" if gb_show else "MB"
 
     for label, val in data.items():
         up = val["up"]
@@ -141,13 +146,13 @@ def draw_graph(data, title, total):
             f"{label:>5} "
             f"{GREEN}{up_bar}{RESET}"
             f"{BLUE}{down_bar}{RESET} "
-            f"{up:>4.0f}↑ {down:>4.0f}↓ MB"
+            f"{up:>6.2f}↑ {down:>6.2f}↓ {unit}"
         )
-    print(f"\nTotal: {total['up']}↑ {total['down']}↓ MB")
+
+    print(f"\nTotal: {total['up']:.2f}↑ {total['down']:.2f}↓ {unit}")
 
 
-def fetch_net_usage(today=False, thisweek=False, month=False, json_output=False):
-
+def fetch_net_usage(today=False, thisweek=False, month=False, json_output=False, gb_show=False):
     rows = cur.execute("""
         SELECT timestamp, bytes_sent, bytes_recv
         FROM data_usage
@@ -159,14 +164,12 @@ def fetch_net_usage(today=False, thisweek=False, month=False, json_output=False)
         return
 
     buckets = defaultdict(lambda: {"up": 0, "down": 0})
-
     total_up = 0
     total_down = 0
-
     now = datetime.now()
 
     for i in range(1, len(rows)):
-        t1, s1, r1 = rows[i-1]
+        t1, s1, r1 = rows[i - 1]
         t2, s2, r2 = rows[i]
 
         up = max(0, s2 - s1)
@@ -187,7 +190,7 @@ def fetch_net_usage(today=False, thisweek=False, month=False, json_output=False)
             if not (start_of_week <= dt < end_of_week):
                 continue
 
-            key = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"][dt.weekday()]
+            key = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][dt.weekday()]
 
         elif month:
             if dt.year != now.year or dt.month != now.month:
@@ -203,13 +206,15 @@ def fetch_net_usage(today=False, thisweek=False, month=False, json_output=False)
         total_up += up
         total_down += down
 
-    data = {}
+    convert = to_gb if gb_show else to_mb
 
-    for k, v in buckets.items():
-        data[k] = {
-            "up": to_mb(v["up"]),
-            "down": to_mb(v["down"])
+    data = {
+        k: {
+            "up": convert(v["up"]),
+            "down": convert(v["down"])
         }
+        for k, v in buckets.items()
+    }
 
     if not data:
         print("No data for this period.")
@@ -221,7 +226,7 @@ def fetch_net_usage(today=False, thisweek=False, month=False, json_output=False)
 
     elif thisweek:
         title = "This Week Usage"
-        order = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]
+        order = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
         data = {d: data[d] for d in order if d in data}
 
     else:
@@ -229,17 +234,16 @@ def fetch_net_usage(today=False, thisweek=False, month=False, json_output=False)
         data = dict(sorted(data.items(), key=lambda x: int(x[0])))
 
     total = {
-        "up": round(to_mb(total_up)),
-        "down": round(to_mb(total_down))
+        "up": round(convert(total_up), 2),
+        "down": round(convert(total_down), 2)
     }
 
     if json_output:
-        data["total"] = []
-        data["total"].append(total)
+        data["total"] = [total]
         pretty = json.dumps(data, indent=3)
         print(pretty)
     else:
-        draw_graph(data, title, total)
+        draw_graph(data, title, total, gb_show=gb_show)
 
 
 parser = argparse.ArgumentParser(
@@ -261,6 +265,7 @@ parser.add_argument("--today", action="store_true", help="show today's usage")
 parser.add_argument("--thisweek", action="store_true", help="show this week's usage")
 parser.add_argument("--month", nargs="?", const=datetime.now().month, type=int, choices=range(1, 13), help="show any month's usage (default: current month)")
 parser.add_argument("--json", action="store_true", help="output data JSON format")
+parser.add_argument("-g", "--gigabyte", action="store_true", help="show data usage in giga byte (GB)")
 parser.add_argument("-V", "--version", action="version", version="1.0.0")
 
 args = parser.parse_args()
@@ -274,13 +279,13 @@ if args.command == "record":
         conn.close()
 
 elif args.today:
-    fetch_net_usage(today=args.today, json_output=args.json)
+    fetch_net_usage(today=args.today, json_output=args.json, gb_show=args.gigabyte)
 
 elif args.thisweek:
-    fetch_net_usage(thisweek=args.thisweek, json_output=args.json)
+    fetch_net_usage(thisweek=args.thisweek, json_output=args.json, gb_show=args.gigabyte)
 
 elif args.month:
-    fetch_net_usage(month=args.month, json_output=args.json)
+    fetch_net_usage(month=args.month, json_output=args.json, gb_show=args.gigabyte)
 
 else:
     fetch_net_usage(today=True)
