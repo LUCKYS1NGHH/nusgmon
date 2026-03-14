@@ -288,4 +288,4 @@ elif args.month:
     fetch_net_usage(month=args.month, json_output=args.json, gb_show=args.gigabyte)
 
 else:
-    fetch_net_usage(today=True)
+    fetch_net_usage(today=True, json_output=args.json, gb_show=args.gigabyte)
