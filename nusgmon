@@ -4,7 +4,6 @@ import time
 import sqlite3
 from datetime import datetime, timedelta
 import argparse
-import sys
 import os
 import signal
 import json
@@ -60,8 +59,7 @@ def current_data_json_output(total_recv, total_sent, download, upload):
             'download_kbps': download,
             'upload_kbps': upload
     }
-    pretty = json.dumps(output, indent=3)
-    return pretty
+    return json.dumps(output, indent=3)
 
 def calculate_usage(rows):
     total_upload = 0
