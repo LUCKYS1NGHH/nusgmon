@@ -12,7 +12,7 @@ if [ "$EUID" -eq 0 ]; then
     chmod 755 /usr/bin/nusgmon
     chmod 644 /usr/lib/systemd/system/nusgmon.service
 
-    sed -i "s|^ExecStart=.*|ExecStart=/usr/bin/nusgmon -w $interval|" /usr/lib/systemd/system/nusgmon.service
+    sed -i "s|^ExecStart=.*|ExecStart=/usr/bin/nusgmon record -w $interval|" /usr/lib/systemd/system/nusgmon.service
 
     systemctl daemon-reload
     systemctl enable --now nusgmon
@@ -28,7 +28,7 @@ else
     chmod 755 "$HOME/.local/bin/nusgmon"
     chmod 644 "$HOME/.config/systemd/user/nusgmon.service"
 
-    sed -i "s|^ExecStart=.*|ExecStart=$HOME/.local/bin/nusgmon -w $interval|" "$HOME/.config/systemd/user/nusgmon.service"
+    sed -i "s|^ExecStart=.*|ExecStart=$HOME/.local/bin/nusgmon record -w $interval|" "$HOME/.config/systemd/user/nusgmon.service"
 
     systemctl --user daemon-reload
     systemctl --user enable --now nusgmon
