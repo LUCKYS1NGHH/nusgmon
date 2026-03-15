@@ -43,11 +43,11 @@ pip install psutil
 
 ## Installation
 The setup script installs the `nusgmon` program and performs the required
-file copy and permission etc. setup.
+file copy, permission, PATH variable etc. setup.
 
 > [!NOTE] 
 > Run the script as root to install system-wide.
-> To install only for your user, just remove sudo `sudo ./setup.sh` from the command.
+> To install only for your user, just remove sudo from the command `sudo ./setup.sh`.
 
 ```bash
 git clone https://github.com/LUCKYS1NGHH/nusgmon
