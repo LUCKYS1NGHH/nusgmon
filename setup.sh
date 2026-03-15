@@ -28,7 +28,7 @@ else
     chmod 755 "$HOME/.local/bin/nusgmon"
     chmod 644 "$HOME/.config/systemd/user/nusgmon.service"
 
-    sed -i "s|^ExecStart=.*|ExecStart=$HOME/.local/bin/nusgmon -w $interval|" "$HOME/.config/systemd/system/nusgmon.service"
+    sed -i "s|^ExecStart=.*|ExecStart=$HOME/.local/bin/nusgmon -w $interval|" "$HOME/.config/systemd/user/nusgmon.service"
 
     systemctl --user daemon-reload
     systemctl --user enable --now nusgmon
