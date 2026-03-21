@@ -169,6 +169,9 @@ def fetch_net_usage(today=False, thisweek=False, month=False, json_output=False,
     total_down = 0
     now = datetime.now()
 
+    start_of_week = now - timedelta(days=now.weekday())
+    start_of_week = start_of_week.replace(hour=0, minute=0, second=0, microsecond=0)
+
     for i in range(1, len(rows)):
         t1, s1, r1 = rows[i - 1]
         t2, s2, r2 = rows[i]
@@ -184,8 +187,6 @@ def fetch_net_usage(today=False, thisweek=False, month=False, json_output=False,
             key = f"{dt.hour:02d}:00"
 
         elif thisweek:
-            start_of_week = now - timedelta(days=now.weekday())
-            start_of_week = start_of_week.replace(hour=0, minute=0, second=0, microsecond=0)
             end_of_week = start_of_week + timedelta(days=7)
 
             if not (start_of_week <= dt < end_of_week):
@@ -282,7 +283,7 @@ parser.add_argument("--month", nargs="?", const=datetime.now().month, type=int, 
 parser.add_argument("--json", action="store_true", help="output data JSON format")
 parser.add_argument("-g", "--gigabyte", action="store_true", help="show data usage in giga byte (GB)")
 parser.add_argument("--since", type=str, help="show data usage after a certain time")
-parser.add_argument("-V", "--version", action="version", version="1.1.0")
+parser.add_argument("-V", "--version", action="version", version="1.1.1")
 
 args = parser.parse_args()
 
