@@ -18,9 +18,14 @@ View this week's usage:
 
 `nusgmon --thisweek`
 
+View usage after certain date:
+
+`nusgmon --since 2026-03-15`
+
 View the data in JSON format:
 
 `nusgmon --thisweek --json`
+
 
 ## Features
 
