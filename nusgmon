@@ -10,6 +10,7 @@ import json
 from collections import defaultdict
 
 
+BOLD = "\033[1m"
 BLUE = "\033[94m"
 GREEN = "\033[32m"
 RESET = "\033[0m"
@@ -262,6 +263,21 @@ def fetch_net_usage(today=False, thisweek=False, month=False, json_output=False,
         draw_graph(data, title, total, gb_show=gb_show)
 
 
+def db_stats():
+    count  = conn.execute("SELECT COUNT(*) FROM data_usage").fetchone()[0]
+    oldest = conn.execute("SELECT MIN(timestamp) FROM data_usage").fetchone()[0]
+    newest = conn.execute("SELECT MAX(timestamp) FROM data_usage").fetchone()[0]
+    size   = os.path.getsize(DB_FILE) / 1024
+
+    print(f"\n  {BOLD}'Database info'{RESET}")
+    print(f"  {'Records':<18} {count:,}")
+    print(f"  {'Size':<18} {size:.1f} KB  ({DB_FILE})")
+    if oldest:
+        print(f"  {'Oldest record':<18} {datetime.fromtimestamp(oldest).strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"  {'Newest record':<18} {datetime.fromtimestamp(newest).strftime('%Y-%m-%d %H:%M:%S')}")
+    print()
+
+
 parser = argparse.ArgumentParser(
     prog="nusgmon",
     description=(
@@ -277,6 +293,9 @@ record_parser.add_argument("-d", "--dry-run", action="store_true", help="prevent
 record_parser.add_argument("-v", "--verbose", action="store_true", help="enable verbose output")
 record_parser.add_argument("--json", action="store_true", help="output data JSON format")
 
+db_parser = subparsers.add_parser("db")
+db_parser.add_argument("--stats", action="store_true", help="Show database stats")
+
 parser.add_argument("--today", action="store_true", help="show today's usage")
 parser.add_argument("--thisweek", action="store_true", help="show this week's usage")
 parser.add_argument("--month", nargs="?", const=datetime.now().month, type=int, choices=range(1, 13), help="show any month's usage (default: current month)")
@@ -291,6 +310,13 @@ args = parser.parse_args()
 if args.command == "record":
     try:
         log_net_usage(args.wait, args.dry_run, args.verbose, args.json)
+    finally:
+        conn.commit()
+        conn.close()
+
+elif args.command == "db":
+    try:
+        db_stats()
     finally:
         conn.commit()
         conn.close()
