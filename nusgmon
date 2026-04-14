@@ -154,7 +154,7 @@ def draw_graph(data, title, total, gb_show=False):
     print(f"\nTotal: {total['up']:.2f}↑ {total['down']:.2f}↓ {unit}")
 
 
-def fetch_net_usage(today=False, thisweek=False, month=False, json_output=False, gb_show=False, since=False):
+def fetch_net_usage(yesterday=False, today=False, thisweek=False, month=False, json_output=False, gb_show=False, since=False):
     rows = cur.execute("""
         SELECT timestamp, bytes_sent, bytes_recv
         FROM data_usage
@@ -182,7 +182,13 @@ def fetch_net_usage(today=False, thisweek=False, month=False, json_output=False,
 
         dt = datetime.fromtimestamp(t2)
 
-        if today:
+        if yesterday:
+            yesterday_date = now.date() - timedelta(days=1)
+            if dt.date() != yesterday_date:
+                continue
+            key = f"{dt.hour:02d}:00"
+
+        elif today:
             if dt.date() != now.date():
                 continue
             key = f"{dt.hour:02d}:00"
@@ -233,7 +239,11 @@ def fetch_net_usage(today=False, thisweek=False, month=False, json_output=False,
         print("No data for this period.")
         return
 
-    if today:
+    if yesterday:
+        title = "Yesterday"
+        data = dict(sorted(data.items()))
+
+    elif today:
         title = "Today Usage"
         data = dict(sorted(data.items()))
 
@@ -296,13 +306,14 @@ record_parser.add_argument("--json", action="store_true", help="output data JSON
 db_parser = subparsers.add_parser("db")
 db_parser.add_argument("--stats", action="store_true", help="Show database stats")
 
+parser.add_argument("--yesterday", action="store_true", help="show yesterday's usage")
 parser.add_argument("--today", action="store_true", help="show today's usage")
 parser.add_argument("--thisweek", action="store_true", help="show this week's usage")
 parser.add_argument("--month", nargs="?", const=datetime.now().month, type=int, choices=range(1, 13), help="show any month's usage (default: current month)")
 parser.add_argument("--json", action="store_true", help="output data JSON format")
 parser.add_argument("-g", "--gigabyte", action="store_true", help="show data usage in giga byte (GB)")
 parser.add_argument("--since", type=str, help="show data usage after a certain time")
-parser.add_argument("-V", "--version", action="version", version="1.1.1")
+parser.add_argument("-V", "--version", action="version", version="1.2.1")
 
 args = parser.parse_args()
 
@@ -320,6 +331,9 @@ elif args.command == "db":
     finally:
         conn.commit()
         conn.close()
+
+elif args.yesterday:
+    fetch_net_usage(yesterday=args.yesterday, json_output=args.json, gb_show=args.gigabyte)
 
 elif args.today:
     fetch_net_usage(today=args.today, json_output=args.json, gb_show=args.gigabyte)
