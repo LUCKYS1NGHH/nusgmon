@@ -70,8 +70,8 @@ sudo ./setup.sh
  
 ```bash
 sudo systemctl disable --now nusgmon
-sudo rm /usr/lib/systemd/system/nusgmon.service
-sudo rm /usr/bin/nusgmon
+sudo rm /etc/systemd/system/nusgmon.service
+sudo rm /usr/local/bin/nusgmon
 sudo systemctl daemon-reload
 ```
 
