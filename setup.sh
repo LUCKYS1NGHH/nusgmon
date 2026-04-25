@@ -1,39 +1,74 @@
 #!/usr/bin/env bash
+set -e
 
-read -p "Enter record interval (recommend -> 3): " _interval
-interval="${_interval:-3}"
+# colors
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
+info()  { echo -e "${GREEN}[+]${NC} $*"; }
+warn()  { echo -e "${YELLOW}[!]${NC} $*"; }
+die()   { echo -e "${RED}[✗]${NC} $*" >&2; exit 1; }
 
 
-if [ "$EUID" -eq 0 ]; then
-    echo "Setting up nusgmon system-wide.."
-    cp nusgmon /usr/bin/nusgmon
-    cp nusgmon.service /usr/lib/systemd/system/nusgmon.service
+# preflight checks
+[[ -f nusgmon ]]         || die "nusgmon binary not found. Run this from the repo root."
+[[ -f nusgmon.service ]] || die "nusgmon.service not found. Run this from the repo root."
 
-    chmod 755 /usr/bin/nusgmon
-    chmod 644 /usr/lib/systemd/system/nusgmon.service
 
-    sed -i "s|^ExecStart=.*|ExecStart=/usr/bin/nusgmon record -w $interval|" /usr/lib/systemd/system/nusgmon.service
+command -v python3 &>/dev/null || die "python3 is not installed."
+python3 -c "import psutil" 2>/dev/null || die "psutil not installed. Run: pip install psutil"
+
+if ! systemctl --version &>/dev/null; then
+    die "systemd is not available on this system."
+fi
+
+# interval prompt
+while true; do
+    read -rp "Enter record interval in seconds [default -> 3]: " _interval
+    interval="${_interval:-3}"
+    if [[ "$interval" =~ ^[1-9][0-9]*$ ]]; then
+        break
+    else
+        warn "Invalid input. Enter a positive integer (e.g. 3)."
+    fi
+done
+
+# install
+if [[ "$EUID" -eq 0 ]]; then
+    SERVICE_DIR="/etc/systemd/system"
+    BIN_PATH="/usr/local/bin/nusgmon"
+
+    info "Installing nusgmon system-wide.."
+    install -m 755 nusgmon "$BIN_PATH"
+    install -m 644 nusgmon.service "$SERVICE_DIR/nusgmon.service"
+    sed -i "s|^ExecStart=.*|ExecStart=$BIN_PATH record -w $interval|" "$SERVICE_DIR/nusgmon.service"
 
     systemctl daemon-reload
     systemctl enable --now nusgmon
-
+    systemctl is-active --quiet nusgmon \
+        && info "Service is running." \
+        || warn "Service may not have started. Check: systemctl status nusgmon"
 else
-    echo "Setting up nusgmon only for this user.."
-    mkdir -p "$HOME/.local/bin"
-    mkdir -p "$HOME/.config/systemd/user"
+    BIN_DIR="$HOME/.local/bin"
+    SERVICE_DIR="$HOME/.config/systemd/user"
+    BIN_PATH="$BIN_DIR/nusgmon"
 
-    cp nusgmon "$HOME/.local/bin/nusgmon"
-    cp nusgmon.service "$HOME/.config/systemd/user/nusgmon.service"
-
-    chmod 755 "$HOME/.local/bin/nusgmon"
-    chmod 644 "$HOME/.config/systemd/user/nusgmon.service"
-
-    sed -i "s|^ExecStart=.*|ExecStart=$HOME/.local/bin/nusgmon record -w $interval|" "$HOME/.config/systemd/user/nusgmon.service"
+    info "Installing nusgmon for current user.."
+    mkdir -p "$BIN_DIR" "$SERVICE_DIR"
+    install -m 755 nusgmon "$BIN_PATH"
+    install -m 644 nusgmon.service "$SERVICE_DIR/nusgmon.service"
+    sed -i "s|^ExecStart=.*|ExecStart=$BIN_PATH record -w $interval|" "$SERVICE_DIR/nusgmon.service"
 
     systemctl --user daemon-reload
     systemctl --user enable --now nusgmon
+    systemctl --user is-active --quiet nusgmon \
+        && info "Service is running." \
+        || warn "Service may not have started. Check: systemctl --user status nusgmon"
 
-
+    if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
+        warn "$BIN_DIR is not in your PATH."
+        warn "Add this to your ~/.bashrc or ~/.profile:"
+        echo "    export PATH=\"\$HOME/.local/bin:\$PATH\""
+    fi
 fi
 
-echo "Done!"
+echo ""
+info "Done! Interval set to ${interval}s."
