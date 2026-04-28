@@ -61,7 +61,8 @@ chmod +x setup.sh
 sudo ./setup.sh
 ```
 
-## Uninstall
+<details>
+<summary> Uninstall </summary>
 
 > Optional (removes the database):
 > `rm -rf ~/.nusgmon`
@@ -83,6 +84,8 @@ rm ~/.config/systemd/user/nusgmon.service
 rm ~/.local/bin/nusgmon
 systemctl --user daemon-reload
 ```
+
+</details>
 
 ## Wanna Contribute? 🤝
 
