@@ -31,6 +31,8 @@ CREATE TABLE IF NOT EXISTS data_usage (
     bytes_recv INTEGER NOT NULL
 )""")
 
+cur.execute("CREATE INDEX IF NOT EXISTS idx_timestamp ON data_usage(timestamp)")
+
 
 running = True
 def handle_term(signum, frame):
@@ -226,69 +228,68 @@ def draw_graph(data, title, total, gb_show=False):
 
 
 def fetch_net_usage(yesterday=False, today=False, thisweek=False, month=False, json_output=False, gb_show=False, since=False, style=None):
+    now = datetime.now()
+
+    # --- build time bounds in Python, filter in SQL ---
+    if yesterday:
+        d = now.date() - timedelta(days=1)
+        t_start = int(datetime(d.year, d.month, d.day).timestamp())
+        t_end   = t_start + 86400
+    elif today:
+        d = now.date()
+        t_start = int(datetime(d.year, d.month, d.day).timestamp())
+        t_end   = int(now.timestamp()) + 1
+    elif thisweek:
+        sow = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+        t_start = int(sow.timestamp())
+        t_end   = int((sow + timedelta(days=7)).timestamp())
+    elif month:
+        t_start = int(datetime(now.year, now.month, 1).timestamp())
+        # first day of next month
+        nm = now.month % 12 + 1
+        ny = now.year + (1 if now.month == 12 else 0)
+        t_end = int(datetime(ny, nm, 1).timestamp())
+    elif since:
+        try:
+            since_dt = datetime.strptime(since, "%Y-%m-%d")
+        except ValueError:
+            print("Invalid date format. Use YYYY-MM-DD")
+            return
+        t_start = int(since_dt.timestamp())
+        t_end   = int(now.timestamp()) + 1
+    else:
+        return
+
     rows = cur.execute("""
         SELECT timestamp, bytes_sent, bytes_recv
         FROM data_usage
+        WHERE timestamp BETWEEN ? AND ?
         ORDER BY timestamp ASC
-    """).fetchall()
+    """, (t_start, t_end)).fetchall()
 
     if len(rows) < 2:
         print("Not enough data.")
         return
 
-    buckets = defaultdict(lambda: {"up": 0, "down": 0})
-    total_up = 0
+    buckets   = defaultdict(lambda: {"up": 0, "down": 0})
+    total_up  = 0
     total_down = 0
-    now = datetime.now()
-
-    start_of_week = now - timedelta(days=now.weekday())
-    start_of_week = start_of_week.replace(hour=0, minute=0, second=0, microsecond=0)
 
     for i in range(1, len(rows)):
         t1, s1, r1 = rows[i - 1]
         t2, s2, r2 = rows[i]
-
-        up = max(0, s2 - s1)
+        up   = max(0, s2 - s1)
         down = max(0, r2 - r1)
+        dt   = datetime.fromtimestamp(t2)
 
-        dt = datetime.fromtimestamp(t2)
-
-        if yesterday:
-            yesterday_date = now.date() - timedelta(days=1)
-            if dt.date() != yesterday_date:
-                continue
+        if yesterday or today:
             key = f"{dt.hour:02d}:00"
-
-        elif today:
-            if dt.date() != now.date():
-                continue
-            key = f"{dt.hour:02d}:00"
-
         elif thisweek:
-            end_of_week = start_of_week + timedelta(days=7)
-
-            if not (start_of_week <= dt < end_of_week):
-                continue
-
             key = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][dt.weekday()]
-
         elif month:
-            if dt.year != now.year or dt.month != now.month:
-                continue
             key = str(dt.day)
-
-        elif since:
-            try:
-                since_dt = datetime.strptime(since, "%Y-%m-%d")
-            except ValueError:
-                print("Invalid date format. Use YYYY-MM-DD")
-                return
-            if dt < since_dt:
-                continue
-            key = dt.strftime("%Y-%m-%d")  # group by calendar date
-
         else:
-            continue
+            key = dt.strftime("%Y-%m-%d")
 
         buckets[key]["up"] += up
         buckets[key]["down"] += down
