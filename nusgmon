@@ -368,7 +368,7 @@ def db_stats():
     FROM data_usage GROUP BY day ORDER BY total ASC LIMIT 1""").fetchone()[0]
     size   = os.path.getsize(DB_FILE) / 1024
 
-    print(f"\n  {BOLD}'Database info'{RESET}")
+    print(f"\n  {BOLD}Database info{RESET}\n")
     print(f"  {'Records':<18} {count:,}")
     print(f"  {'Size':<18} {size:.1f} KB  ({DB_FILE})")
     if oldest:
