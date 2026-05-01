@@ -361,6 +361,11 @@ def db_stats():
         SUM(bytes_sent + bytes_recv) as total
     FROM data_usage GROUP BY day
     ORDER BY total DESC LIMIT 1""").fetchone()[0]
+    least_traffic = conn.execute("""SELECT timestamp as day,
+        SUM(bytes_sent) as total_sent,
+        SUM(bytes_recv) as total_recv,
+        SUM(bytes_sent + bytes_recv) as total
+    FROM data_usage GROUP BY day ORDER BY total ASC LIMIT 1""").fetchone()[0]
     size   = os.path.getsize(DB_FILE) / 1024
 
     print(f"\n  {BOLD}'Database info'{RESET}")
@@ -370,6 +375,7 @@ def db_stats():
         print(f"  {'Oldest record':<18} {datetime.fromtimestamp(oldest).strftime('%Y-%m-%d %H:%M:%S')}")
         print(f"  {'Newest record':<18} {datetime.fromtimestamp(newest).strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"  {'Most Traffic':<18} {datetime.fromtimestamp(most_traffic).strftime('%Y-%m-%d')}")
+    print(f"  {'Least Traffic':<18} {datetime.fromtimestamp(least_traffic).strftime('%Y-%m-%d')}")
     print()
 
 
