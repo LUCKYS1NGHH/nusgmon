@@ -1,6 +1,6 @@
 # Nusgmon - Network Usage Monitor
 Lightweight Python CLI (command-line interface) network usage monitor for Linux.
-Designed to run as a systemd service.
+Designed to run as a `systemd` service.
 
 ![Screenshot](screenshot.png)
 
@@ -14,7 +14,7 @@ View today's usage:
 
 `nusgmon --today`
 
-View this week's usage:
+View current week's usage:
 
 `nusgmon --thisweek`
 
@@ -34,16 +34,19 @@ View the data in JSON format:
 - Stores usage history in SQLite
  
 - Daily / weekly / monthly statistics
- 
+
+- Graph style options for statistics
+
 - JSON output for scripting
  
 - Works with systemd
+
 
 ## Dependencies
 Requires Python 3 and psutil library.
 
 ```
-pip install psutil
+pip install psutil # or install `python-psutil` as system-wide through your package manager
 ```
 
 ## Installation
@@ -86,6 +89,7 @@ systemctl --user daemon-reload
 ```
 
 </details>
+
 
 ## Wanna Contribute? 🤝
 
