@@ -123,6 +123,77 @@ def log_net_usage(wait=None, dry_run=False, verbose=False, json_output=False):
         old = new
 
 
+def _to_spark(values):
+    """Map a list of floats to sparkline characters."""
+    if not values:
+        return ""
+
+    SPARKS = "▁▂▃▄▅▆▇█"
+
+    lo, hi = min(values), max(values)
+    span = hi - lo or 1
+    return "".join(SPARKS[int((v - lo) / span * (len(SPARKS) - 1))] for v in values)
+
+
+def draw_compact(data, title, total, gb_show=False):
+    """
+    Single-line-per-entry, no bars. Good for quick glance or narrow terminals.
+
+    Example output:
+      Today Usage
+      ─────────────────────────────────
+      00:00   ↑   0.12   ↓   1.43 MB
+      01:00   ↑   0.00   ↓   0.00 MB
+      ...
+      Total: 12.34↑  45.67↓ MB
+    """
+    unit = "GB" if gb_show else "MB"
+    print(f"\n  {title}")
+    print("  " + "─" * (len(title) + 2))
+    for label, val in data.items():
+        up   = val["up"]
+        down = val["down"]
+        print(
+            f"  {label:>5}   "
+            f"{GREEN}↑{RESET} {up:>7.2f}   "
+            f"{BLUE}↓{RESET} {down:>7.2f} {unit}"
+        )
+    print(f"\n  Total: {GREEN}{total['up']:.2f}↑{RESET}  {BLUE}{total['down']:.2f}↓{RESET} {unit}")
+
+def draw_spark(data, title, total, gb_show=False):
+    unit   = "GB" if gb_show else "MB"
+    labels = list(data.keys())
+    ups    = [v["up"]   for v in data.values()]
+    downs  = [v["down"] for v in data.values()]
+
+    STRETCH = 4  # each data point = 3 chars wide
+
+    up_spark   = "".join(c * STRETCH for c in _to_spark(ups))
+    down_spark = "".join(c * STRETCH for c in _to_spark(downs))
+
+    n    = len(labels)
+    step = max(3, n // 6)
+
+    # each label's position is now i * STRETCH
+    buf = [' '] * (n * STRETCH + 4)
+    for i in range(0, n, step):
+        short = labels[i].replace(":00", "")  # "09:00" -> "09"
+        pos = i * STRETCH
+        for j, c in enumerate(short):
+            if pos + j < len(buf):
+                buf[pos + j] = c
+    tick_row = ''.join(buf).rstrip()
+
+    up_peak   = labels[ups.index(max(ups))]
+    down_peak = labels[downs.index(max(downs))]
+
+    print(f"\n  {title}")
+    print("  " + "─" * (len(title) + 2))
+    print(f"  {GREEN}↑{RESET} {up_spark}  peak {up_peak} {max(ups):.2f} {unit}")
+    print(f"  {BLUE}↓{RESET} {down_spark}  peak {down_peak} {max(downs):.2f} {unit}")
+    print(f"    {tick_row}")
+    print(f"\n  Total: {GREEN}{total['up']:.2f}↑{RESET}  {BLUE}{total['down']:.2f}↓{RESET} {unit}")
+
 def draw_graph(data, title, total, gb_show=False):
     max_val = max(
         max(v["up"], v["down"]) for v in data.values()
@@ -154,7 +225,7 @@ def draw_graph(data, title, total, gb_show=False):
     print(f"\nTotal: {total['up']:.2f}↑ {total['down']:.2f}↓ {unit}")
 
 
-def fetch_net_usage(yesterday=False, today=False, thisweek=False, month=False, json_output=False, gb_show=False, since=False):
+def fetch_net_usage(yesterday=False, today=False, thisweek=False, month=False, json_output=False, gb_show=False, since=False, style=None):
     rows = cur.execute("""
         SELECT timestamp, bytes_sent, bytes_recv
         FROM data_usage
@@ -265,13 +336,19 @@ def fetch_net_usage(yesterday=False, today=False, thisweek=False, month=False, j
         "down": round(convert(total_down), 2)
     }
 
+    GRAPH_STYLES = {
+        "bar":     draw_graph,
+        "compact": draw_compact,
+        "spark":   draw_spark,
+    }
+
     if json_output:
         data["total"] = [total]
         pretty = json.dumps(data, indent=3)
         print(pretty)
     else:
-        draw_graph(data, title, total, gb_show=gb_show)
-
+        renderer = GRAPH_STYLES.get(style, draw_graph)
+        renderer(data, title, total, gb_show=gb_show)
 
 def db_stats():
     count  = conn.execute("SELECT COUNT(*) FROM data_usage").fetchone()[0]
@@ -313,7 +390,8 @@ parser.add_argument("--month", nargs="?", const=datetime.now().month, type=int, 
 parser.add_argument("--json", action="store_true", help="output data JSON format")
 parser.add_argument("-g", "--gigabyte", action="store_true", help="show data usage in giga byte (GB)")
 parser.add_argument("--since", type=str, help="show data usage after a certain time")
-parser.add_argument("-V", "--version", action="version", version="1.2.1")
+parser.add_argument("--style", choices=["bar", "compact", "spark"], default="bar", help="graph display style (default: bar)")
+parser.add_argument("-V", "--version", action="version", version="1.3.1")
 
 args = parser.parse_args()
 
@@ -333,19 +411,19 @@ elif args.command == "db":
         conn.close()
 
 elif args.yesterday:
-    fetch_net_usage(yesterday=args.yesterday, json_output=args.json, gb_show=args.gigabyte)
+    fetch_net_usage(yesterday=args.yesterday, json_output=args.json, gb_show=args.gigabyte, style=args.style)
 
 elif args.today:
-    fetch_net_usage(today=args.today, json_output=args.json, gb_show=args.gigabyte)
+    fetch_net_usage(today=args.today, json_output=args.json, gb_show=args.gigabyte, style=args.style)
 
 elif args.thisweek:
-    fetch_net_usage(thisweek=args.thisweek, json_output=args.json, gb_show=args.gigabyte)
+    fetch_net_usage(thisweek=args.thisweek, json_output=args.json, gb_show=args.gigabyte, style=args.style)
 
 elif args.month:
-    fetch_net_usage(month=args.month, json_output=args.json, gb_show=args.gigabyte)
+    fetch_net_usage(month=args.month, json_output=args.json, gb_show=args.gigabyte, style=args.style)
 
 elif args.since:
-    fetch_net_usage(since=args.since, json_output=args.json, gb_show=args.gigabyte)
+    fetch_net_usage(since=args.since, json_output=args.json, gb_show=args.gigabyte, style=args.style)
 
 else:
-    fetch_net_usage(today=True, json_output=args.json, gb_show=args.gigabyte)
+    fetch_net_usage(today=True, json_output=args.json, gb_show=args.gigabyte, style=args.style)
