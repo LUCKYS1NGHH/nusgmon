@@ -391,39 +391,24 @@ parser.add_argument("--json", action="store_true", help="output data JSON format
 parser.add_argument("-g", "--gigabyte", action="store_true", help="show data usage in giga byte (GB)")
 parser.add_argument("--since", type=str, help="show data usage after a certain time")
 parser.add_argument("--style", choices=["bar", "compact", "spark"], default="bar", help="graph display style (default: bar)")
-parser.add_argument("-V", "--version", action="version", version="1.3.1")
+parser.add_argument("-V", "--version", action="version", version="1.3.2")
 
 args = parser.parse_args()
 
 
-if args.command == "record":
+if args.command in ("record", "db"):
     try:
-        log_net_usage(args.wait, args.dry_run, args.verbose, args.json)
+        log_net_usage(args.wait, args.dry_run, args.verbose, args.json) if args.command == "record" else db_stats()
     finally:
         conn.commit()
         conn.close()
-
-elif args.command == "db":
-    try:
-        db_stats()
-    finally:
-        conn.commit()
-        conn.close()
-
-elif args.yesterday:
-    fetch_net_usage(yesterday=args.yesterday, json_output=args.json, gb_show=args.gigabyte, style=args.style)
-
-elif args.today:
-    fetch_net_usage(today=args.today, json_output=args.json, gb_show=args.gigabyte, style=args.style)
-
-elif args.thisweek:
-    fetch_net_usage(thisweek=args.thisweek, json_output=args.json, gb_show=args.gigabyte, style=args.style)
-
-elif args.month:
-    fetch_net_usage(month=args.month, json_output=args.json, gb_show=args.gigabyte, style=args.style)
-
-elif args.since:
-    fetch_net_usage(since=args.since, json_output=args.json, gb_show=args.gigabyte, style=args.style)
-
 else:
-    fetch_net_usage(today=True, json_output=args.json, gb_show=args.gigabyte, style=args.style)
+    fetch_kwargs = dict(json_output=args.json, gb_show=args.gigabyte, style=args.style)
+    fetch_net_usage(
+        yesterday = args.yesterday or False,
+        today     = args.today     or not any([args.yesterday, args.thisweek, args.month, args.since]),
+        thisweek  = args.thisweek  or False,
+        month     = args.month     or False,
+        since     = args.since     or False,
+        **fetch_kwargs
+    )
