@@ -351,7 +351,7 @@ def fetch_net_usage(yesterday=False, today=False, thisweek=False, month=False, j
         renderer = GRAPH_STYLES.get(style, draw_graph)
         renderer(data, title, total, gb_show=gb_show)
 
-def db_stats():
+def db_stats(json_output=False):
     count  = conn.execute("SELECT COUNT(*) FROM data_usage").fetchone()[0]
     oldest = conn.execute("SELECT MIN(timestamp) FROM data_usage").fetchone()[0]
     newest = conn.execute("SELECT MAX(timestamp) FROM data_usage").fetchone()[0]
@@ -368,14 +368,30 @@ def db_stats():
     FROM data_usage GROUP BY day ORDER BY total ASC LIMIT 1""").fetchone()[0]
     size   = os.path.getsize(DB_FILE) / 1024
 
-    print(f"\n  {BOLD}Database info{RESET}\n")
-    print(f"  {'Records':<18} {count:,}")
-    print(f"  {'Size':<18} {size:.1f} KB  ({DB_FILE})")
-    if oldest:
-        print(f"  {'Oldest record':<18} {datetime.fromtimestamp(oldest).strftime('%Y-%m-%d %H:%M:%S')}")
-        print(f"  {'Newest record':<18} {datetime.fromtimestamp(newest).strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"  {'Most Traffic':<18} {datetime.fromtimestamp(most_traffic).strftime('%Y-%m-%d')}")
-    print(f"  {'Least Traffic':<18} {datetime.fromtimestamp(least_traffic).strftime('%Y-%m-%d')}")
+    fmt_oldest = datetime.fromtimestamp(oldest).strftime('%Y-%m-%d %H:%M:%S')
+    fmt_newest = datetime.fromtimestamp(newest).strftime('%Y-%m-%d %H:%M:%S')
+    fmt_mt = datetime.fromtimestamp(most_traffic).strftime('%Y-%m-%d')
+    fmt_lt = datetime.fromtimestamp(least_traffic).strftime('%Y-%m-%d')
+
+    if json_output:
+        data = {
+            'records': count,
+            'size_in_kb': size,
+            'oldest_record': fmt_oldest,
+            'newest_record': fmt_newest,
+            'most_traffic': fmt_mt,
+            'least_traffic': fmt_lt
+        }
+        print(json.dumps(data, indent=3))
+    else: 
+        print(f"\n  {BOLD}Database info{RESET}\n")
+        print(f"  {'Records':<18} {count:,}")
+        print(f"  {'Size':<18} {size:.1f} KB  ({DB_FILE})")
+        if oldest:
+            print(f"  {'Oldest record':<18} {fmt_oldest}")
+            print(f"  {'Newest record':<18} {fmt_newest}")
+        print(f"  {'Most Traffic':<18} {fmt_mt}")
+        print(f"  {'Least Traffic':<18} {fmt_lt}")
     print()
 
 
@@ -396,6 +412,7 @@ record_parser.add_argument("--json", action="store_true", help="output data JSON
 
 db_parser = subparsers.add_parser("db")
 db_parser.add_argument("--stats", action="store_true", help="Show database stats")
+db_parser.add_argument("--json", action="store_true", help="output data JSON format")
 
 parser.add_argument("--yesterday", action="store_true", help="show yesterday's usage")
 parser.add_argument("--today", action="store_true", help="show today's usage")
@@ -405,14 +422,14 @@ parser.add_argument("--json", action="store_true", help="output data JSON format
 parser.add_argument("-g", "--gigabyte", action="store_true", help="show data usage in giga byte (GB)")
 parser.add_argument("--since", type=str, help="show data usage after a certain time")
 parser.add_argument("--style", choices=["bar", "compact", "spark"], default="bar", help="graph display style (default: bar)")
-parser.add_argument("-V", "--version", action="version", version="1.3.2")
+parser.add_argument("-V", "--version", action="version", version="1.4.2")
 
 args = parser.parse_args()
 
 
 if args.command in ("record", "db"):
     try:
-        log_net_usage(args.wait, args.dry_run, args.verbose, args.json) if args.command == "record" else db_stats()
+        log_net_usage(args.wait, args.dry_run, args.verbose, args.json) if args.command == "record" else db_stats(json_output=args.json)
     finally:
         conn.commit()
         conn.close()
