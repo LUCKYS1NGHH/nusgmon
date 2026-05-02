@@ -399,7 +399,17 @@ parser = argparse.ArgumentParser(
         "\nRecord live bandwidth usage."
         "\nAnalyze your data usage.\n"
         f'\n{BOLD}v{VERSION}{RESET}'
-    ), formatter_class=argparse.RawTextHelpFormatter)
+    ),
+    formatter_class=argparse.RawTextHelpFormatter,
+    epilog=(
+            "Examples:\n"
+            "  nusgmon record -w 5 -v           Record with 5s interval, verbose (Running as a service recommended)\n"
+            "  nusgmon --today                  Show today's usage\n"
+            "  nusgmon --thisweek --json        This week as JSON\n"
+            "  nusgmon --since 2026-04-14 -g    Since date, in GB\n"
+            "  nusgmon --today --style compact  Today usage in compact graph style\n"
+            "  nusgmon db --stats               Database info\n"
+    ))
 
 subparsers = parser.add_subparsers(dest="command")
 record_parser = subparsers.add_parser("record")
