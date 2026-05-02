@@ -426,7 +426,7 @@ db_parser.add_argument("--json", action="store_true", help="output data JSON for
 parser.add_argument("--yesterday", action="store_true", help="show yesterday's usage")
 parser.add_argument("--today", action="store_true", help="show today's usage")
 parser.add_argument("--thisweek", action="store_true", help="show this week's usage")
-parser.add_argument("--month", nargs="?", const=datetime.now().month, type=int, choices=range(1, 13), help="show any month's usage (default: current month)")
+parser.add_argument("--month", nargs="?", const=datetime.now().month, type=int, choices=range(1, 13), metavar="N", help="show any month's usage 1-12 (default: current month)")
 parser.add_argument("--json", action="store_true", help="output data JSON format")
 parser.add_argument("-g", "--gigabyte", action="store_true", help="show data usage in giga byte (GB)")
 parser.add_argument("--since", type=str, help="show data usage after a certain time")
