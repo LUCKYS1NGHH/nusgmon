@@ -395,8 +395,10 @@ def db_stats(json_output=False):
 parser = argparse.ArgumentParser(
     prog="nusgmon",
     description=(
-        "Network usage monitoring tool\n"
-        "Record live bandwidth usage.\n"
+        f"{BOLD}nusgmon{RESET} — Network usage monitoring tool"
+        "\nRecord live bandwidth usage."
+        "\nAnalyze your data usage.\n"
+        f'\n{BOLD}v{VERSION}{RESET}'
     ), formatter_class=argparse.RawTextHelpFormatter)
 
 subparsers = parser.add_subparsers(dest="command")
