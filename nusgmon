@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS data_usage (
 
 cur.execute("CREATE INDEX IF NOT EXISTS idx_timestamp ON data_usage(timestamp)")
 
-VERSION = "1.4.2"
+VERSION = "1.5.2"
 
 running = True
 def handle_term(signum, frame):
@@ -224,7 +224,7 @@ def draw_graph(data, title, total, gb_show=False):
     print(f"\nTotal: {total['up']:.2f}↑ {total['down']:.2f}↓ {unit}")
 
 
-def fetch_net_usage(yesterday=False, today=False, thisweek=False, month=False, json_output=False, gb_show=False, since=False, style=None):
+def fetch_net_usage(yesterday=False, today=False, thisweek=False, month=False, json_output=False, gb_show=False, since=False, date=None, style=None):
     now = datetime.now()
 
     # --- build time bounds in Python, filter in SQL ---
@@ -254,6 +254,20 @@ def fetch_net_usage(yesterday=False, today=False, thisweek=False, month=False, j
             return
         t_start = int(since_dt.timestamp())
         t_end   = int(now.timestamp()) + 1
+    elif date:
+        try:
+            strp_dt = datetime.strptime(date, "%Y-%m-%d")
+        except ValueError:
+            print("Invalid date format. Use YYYY-MM-DD")
+            return
+
+        log_start_date = datetime.strptime(datetime.fromtimestamp(conn.execute("SELECT MIN(timestamp) FROM data_usage").fetchone()[0]).strftime("%Y-%m-%d"), "%Y-%m-%d")
+
+        if strp_dt < log_start_date:
+            print(f"No data available before {str(strp_dt).split()[0]}.")
+            return
+        t_start = int(strp_dt.timestamp())
+        t_end = t_start + 86400
     else:
         return
 
@@ -279,7 +293,7 @@ def fetch_net_usage(yesterday=False, today=False, thisweek=False, month=False, j
         down = max(0, r2 - r1)
         dt   = datetime.fromtimestamp(t2)
 
-        if yesterday or today:
+        if yesterday or today or date:
             key = f"{dt.hour:02d}:00"
         elif thisweek:
             key = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][dt.weekday()]
@@ -324,6 +338,10 @@ def fetch_net_usage(yesterday=False, today=False, thisweek=False, month=False, j
     elif since:
         title = f"Since {since}"
         data = dict(sorted(data.items()))  # already YYYY-MM-DD so lexical sort = chronological
+
+    elif date:
+        title= f"{str(strp_dt).split()[0]}"
+        data = dict(sorted(data.items()))
 
     else:
         title = f"Month {now.month} Usage"
@@ -426,6 +444,7 @@ db_parser.add_argument("--json", action="store_true", help="output data JSON for
 parser.add_argument("--yesterday", action="store_true", help="show yesterday's usage")
 parser.add_argument("--today", action="store_true", help="show today's usage")
 parser.add_argument("--thisweek", action="store_true", help="show this week's usage")
+parser.add_argument("--date", type=str, metavar="YYYY-MM-DD", help="show given date's usage")
 parser.add_argument("--month", nargs="?", const=datetime.now().month, type=int, choices=range(1, 13), metavar="N", help="show any month's usage 1-12 (default: current month)")
 parser.add_argument("--json", action="store_true", help="output data JSON format")
 parser.add_argument("-g", "--gigabyte", action="store_true", help="show data usage in giga byte (GB)")
@@ -446,9 +465,10 @@ else:
     fetch_kwargs = dict(json_output=args.json, gb_show=args.gigabyte, style=args.style)
     fetch_net_usage(
         yesterday = args.yesterday or False,
-        today     = args.today     or not any([args.yesterday, args.thisweek, args.month, args.since]),
+        today     = args.today     or not any([args.yesterday, args.thisweek, args.month, args.since, args.date]),
         thisweek  = args.thisweek  or False,
         month     = args.month     or False,
         since     = args.since     or False,
+        date      = args.date      or False,
         **fetch_kwargs
     )
