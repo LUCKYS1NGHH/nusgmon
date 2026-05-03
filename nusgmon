@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS data_usage (
 
 cur.execute("CREATE INDEX IF NOT EXISTS idx_timestamp ON data_usage(timestamp)")
 
-VERSION = "1.5.0"
+VERSION = "1.5.1"
 
 running = True
 def handle_term(signum, frame):
@@ -240,9 +240,10 @@ def fetch_net_usage(yesterday=False, today=False, thisweek=False, json_output=Fa
         t_start = int(sow.timestamp())
         t_end   = int((sow + timedelta(days=7)).timestamp())
     elif month:
-        t_start = int(datetime(now.year, now.month, 1).timestamp())
+        year = now.year if month <= now.month else now.year - 1
+        t_start = int(datetime(year, month, 1).timestamp())
         # first day of next month
-        nm = now.month % 12 + 1
+        nm = month % 12 + 1
         ny = now.year + (1 if now.month == 12 else 0)
         t_end = int(datetime(ny, nm, 1).timestamp())
     elif since:
@@ -343,7 +344,7 @@ def fetch_net_usage(yesterday=False, today=False, thisweek=False, json_output=Fa
         data = dict(sorted(data.items()))
 
     else:
-        title = f"Month {now.month} Usage"
+        title = f"Month {month} Usage"
         data = dict(sorted(data.items(), key=lambda x: int(x[0])))
 
     total = {
