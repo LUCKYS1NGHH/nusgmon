@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS data_usage (
 
 cur.execute("CREATE INDEX IF NOT EXISTS idx_timestamp ON data_usage(timestamp)")
 
-VERSION = "1.5.2"
+VERSION = "1.5.0"
 
 running = True
 def handle_term(signum, frame):
@@ -224,10 +224,9 @@ def draw_graph(data, title, total, gb_show=False):
     print(f"\nTotal: {total['up']:.2f}↑ {total['down']:.2f}↓ {unit}")
 
 
-def fetch_net_usage(yesterday=False, today=False, thisweek=False, month=False, json_output=False, gb_show=False, since=False, date=None, style=None):
+def fetch_net_usage(yesterday=False, today=False, thisweek=False, json_output=False, gb_show=False, since=None, month=None, date=None, style=None):
     now = datetime.now()
 
-    # --- build time bounds in Python, filter in SQL ---
     if yesterday:
         d = now.date() - timedelta(days=1)
         t_start = int(datetime(d.year, d.month, d.day).timestamp())
