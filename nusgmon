@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS data_usage (
 
 cur.execute("CREATE INDEX IF NOT EXISTS idx_timestamp ON data_usage(timestamp)")
 
-VERSION = "1.5.1"
+VERSION = "1.6.1"
 
 running = True
 def handle_term(signum, frame):
@@ -409,6 +409,20 @@ def db_stats(json_output=False):
         print(f"  {'Least Traffic':<18} {fmt_lt}")
     print()
 
+def db_prune(days):
+    cutoff = int((datetime.now() - timedelta(days=days)).timestamp())
+    format_cutoff = datetime.fromtimestamp(cutoff).strftime("%Y %d %b")
+    confirm = input(f"Records before {format_cutoff} will be pruned. Continue? [y/N] ")
+    if confirm.strip().lower() != "y":
+        print("abort.")
+        return
+    cur = conn.cursor()
+    cur.execute("DELETE FROM data_usage WHERE timestamp < ?", (cutoff,))
+    deleted = cur.rowcount
+    conn.commit()
+    conn.execute("VACUUM")
+    print(f"{BOLD}{GREEN}Pruned {deleted:,} records older than {days} days.{RESET}")
+
 
 parser = argparse.ArgumentParser(
     prog="nusgmon",
@@ -438,8 +452,9 @@ record_parser.add_argument("-v", "--verbose", action="store_true", help="enable 
 record_parser.add_argument("--json", action="store_true", help="output data JSON format")
 
 db_parser = subparsers.add_parser("db")
-db_parser.add_argument("--stats", action="store_true", help="Show database stats")
+db_parser.add_argument("--stats", action="store_true", help="show database stats")
 db_parser.add_argument("--json", action="store_true", help="output data JSON format")
+db_parser.add_argument("--prune", type=int, metavar="DAYS", help="delete data older than N days")
 
 parser.add_argument("--yesterday", action="store_true", help="show yesterday's usage")
 parser.add_argument("--today", action="store_true", help="show today's usage")
@@ -457,7 +472,13 @@ args = parser.parse_args()
 
 if args.command in ("record", "db"):
     try:
-        log_net_usage(args.wait, args.dry_run, args.verbose, args.json) if args.command == "record" else db_stats(json_output=args.json)
+        if args.command == "record":
+            log_net_usage(args.wait, args.dry_run, args.verbose, args.json)
+        else:
+            if args.prune:
+                db_prune(args.prune)
+            else:
+                db_stats(json_output=args.json)
     finally:
         conn.commit()
         conn.close()
