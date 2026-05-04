@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS data_usage (
 
 cur.execute("CREATE INDEX IF NOT EXISTS idx_timestamp ON data_usage(timestamp)")
 
-VERSION = "1.6.1"
+VERSION = "1.6.0"
 
 running = True
 def handle_term(signum, frame):
