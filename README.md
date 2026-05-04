@@ -19,18 +19,17 @@ View today's usage:
 
 `nusgmon --today`
 
-View current week's usage:
+View current week's usage in JSON format:
 
-`nusgmon --thisweek`
+`nusgmon --thisweek --json`
 
 View usage after certain date:
 
 `nusgmon --since 2026-03-15`
 
-View the data in JSON format:
+Prune records before 30 days:
 
-`nusgmon --thisweek --json`
-
+`nusgmon db --prune 30`
 
 ## Features
 
