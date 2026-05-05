@@ -10,11 +10,13 @@ import json
 from collections import defaultdict
 
 
+VERSION = "1.6.0"
+
+
 BOLD = "\033[1m"
 BLUE = "\033[94m"
 GREEN = "\033[32m"
 RESET = "\033[0m"
-
 
 DIR = os.path.expanduser("~/.nusgmon")
 DB_FILE = os.path.join(DIR, "db.sqlite")
@@ -33,13 +35,12 @@ CREATE TABLE IF NOT EXISTS data_usage (
 
 cur.execute("CREATE INDEX IF NOT EXISTS idx_timestamp ON data_usage(timestamp)")
 
-VERSION = "1.6.0"
 
 running = True
+
 def handle_term(signum, frame):
     global running
     running = False
-
 
 signal.signal(signal.SIGTERM, handle_term)
 signal.signal(signal.SIGINT, handle_term)
@@ -162,6 +163,7 @@ def draw_compact(data, title, total, gb_show=False):
         )
     print(f"\n  Total: {GREEN}{total['up']:.2f}↑{RESET}  {BLUE}{total['down']:.2f}↓{RESET} {unit}")
 
+
 def draw_spark(data, title, total, gb_show=False):
     unit   = "GB" if gb_show else "MB"
     labels = list(data.keys())
@@ -195,6 +197,7 @@ def draw_spark(data, title, total, gb_show=False):
     print(f"  {BLUE}↓{RESET} {down_spark}  peak {down_peak} {max(downs):.2f} {unit}")
     print(f"    {tick_row}")
     print(f"\n  Total: {GREEN}{total['up']:.2f}↑{RESET}  {BLUE}{total['down']:.2f}↓{RESET} {unit}")
+
 
 def draw_graph(data, title, total, gb_show=False):
     max_val = max(
@@ -369,6 +372,7 @@ def fetch_net_usage(yesterday=False, today=False, thisweek=False, json_output=Fa
         renderer = GRAPH_STYLES.get(style, draw_graph)
         renderer(data, title, total, gb_show=gb_show)
 
+
 def db_stats(json_output=False):
     count  = conn.execute("SELECT COUNT(*) FROM data_usage").fetchone()[0]
     oldest = conn.execute("SELECT MIN(timestamp) FROM data_usage").fetchone()[0]
@@ -411,6 +415,7 @@ def db_stats(json_output=False):
         print(f"  {'Most Traffic':<18} {fmt_mt}")
         print(f"  {'Least Traffic':<18} {fmt_lt}")
     print()
+
 
 def db_prune(days):
     cutoff = int((datetime.now() - timedelta(days=days)).timestamp())
