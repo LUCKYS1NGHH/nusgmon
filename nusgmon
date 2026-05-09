@@ -235,11 +235,11 @@ def fetch_net_usage(yesterday=False, today=False, thisweek=False, json_output=Fa
 
     if yesterday:
         d = now.date() - timedelta(days=1)
-        t_start = int(datetime.combine(d, time()).timestamp())
+        t_start = int(datetime(d.year, d.month, d.day).timestamp())
         t_end   = t_start + 86400
     elif today:
         d = now.date()
-        t_start = int(datetime.combine(d, time()).timestamp())
+        t_start = int(datetime(d.year, d.month, d.day).timestamp())
         t_end   = int(now.timestamp()) + 1
     elif thisweek:
         sow = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
