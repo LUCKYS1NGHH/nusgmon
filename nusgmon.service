@@ -6,8 +6,6 @@ After=
 
 [Service]
 ExecStart=
-# Example:
-# ExecStart=/usr/bin/env /opt/myapp/app.py --flag
 ExecReload=/bin/kill -HUP $MAINPID
 ExecStop=/bin/kill -TERM $MAINPID
 
