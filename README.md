@@ -34,15 +34,15 @@ Prune records before 30 days:
 ## Features
 
 - Lightweight network usage monitor
- 
+
 - Stores usage history in SQLite
- 
+
 - Daily / weekly / monthly statistics
 
 - Graph style options for statistics
 
 - JSON output for scripting
- 
+
 - Works with systemd
 
 
@@ -54,10 +54,18 @@ pip install psutil # or install `python-psutil` as system-wide through your pack
 ```
 
 ## Installation
+
+#### For Arch Linux (AUR)
+```bash
+yay -S nusgmon-git
+```
+
+#### For any other distro
+
 The setup script installs the `nusgmon` program and performs the required
 file copy, permission, PATH variable etc. setup.
 
-> [!NOTE] 
+> [!NOTE]
 > Run the script as root to install system-wide.
 > To install only for your user, just remove sudo from the command `sudo ./setup.sh`.
 
@@ -71,11 +79,17 @@ sudo ./setup.sh
 <details>
 <summary> Uninstall </summary>
 
+#### If Arch Linux
+```bash
+yay -R nusgmon-git
+```
+
+
 > Optional (removes the database):
 > `rm -rf ~/.nusgmon`
 
 #### If installed system-wide
- 
+
 ```bash
 sudo systemctl disable --now nusgmon
 sudo rm /etc/systemd/system/nusgmon.service
