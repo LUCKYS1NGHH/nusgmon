@@ -45,6 +45,8 @@ Prune records before 30 days:
 
 - Works with systemd
 
+- Sends data usage notification alerts (needs [nusgmon-alert](https://github.com/LUCKYS1NGHH/nusgmon-alert.sh))
+
 
 ## Dependencies
 Requires Python 3 and psutil library.
