@@ -503,3 +503,12 @@ else:
     )
 
 print()
+
+
+# ==============================================
+# nusgmon - Network USaGe MONitor
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Author: LUCKYS1NGHH
+# License: GPL-3.0
+# Repo: https://github.com/LUCKYS1NGHH/nusgmon
+# ==============================================
