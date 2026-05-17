@@ -10,7 +10,7 @@ import json
 from collections import defaultdict
 
 
-VERSION = "1.6.0"
+VERSION = "1.7.0"
 
 
 BOLD = "\033[1m"
@@ -199,6 +199,35 @@ def draw_spark(data, title, total, gb_show=False):
     print(f"\n  Total: {GREEN}{total['up']:.2f}↑{RESET}  {BLUE}{total['down']:.2f}↓{RESET} {unit}")
 
 
+def draw_norm(data, title, total, gb_show=False):
+    unit = "GB" if gb_show else "MB"
+    WIDTH = 25
+
+    max_up = max(v["up"] for v in data.values()) or 1
+    max_down = max(v["down"] for v in data.values()) or 1
+
+    print(f"\n  {title}")
+    print("  " + "─" * (len(title) + 2))
+    print(f"  peak  {GREEN}↑ {max_up:.2f}{RESET}  {BLUE}↓ {max_down:.2f}{RESET} {unit}\n")
+
+    for label, val in data.items():
+        up, down = val["up"], val["down"]
+
+        up_fill = int((up / max_up) * WIDTH)
+        down_fill = int((down / max_down) * WIDTH)
+
+        up_bar = "█" * up_fill + "░" * (WIDTH - up_fill)
+        down_bar = "█" * down_fill + "░" * (WIDTH - down_fill)
+
+        up_pct = int((up / max_up) * 100)
+        down_pct = int((down / max_down) * 100)
+
+        print(f"  {label:>5}  {GREEN}↑{RESET} {up_bar}  {up_pct:>3}%  {up:>7.2f} {unit}")
+        print(f"         {BLUE}↓{RESET} {down_bar}  {down_pct:>3}%  {down:>7.2f} {unit}")
+
+    print(f"\n  Total: {GREEN}{total['up']:.2f}↑{RESET}  {BLUE}{total['down']:.2f}↓{RESET} {unit}")
+
+
 def draw_graph(data, title, total, gb_show=False):
     max_val = max(
         max(v["up"], v["down"]) for v in data.values()
@@ -362,6 +391,7 @@ def fetch_net_usage(yesterday=False, today=False, thisweek=False, json_output=Fa
         "bar":     draw_graph,
         "compact": draw_compact,
         "spark":   draw_spark,
+        "norm": draw_norm
     }
 
     if json_output:
@@ -472,7 +502,7 @@ parser.add_argument("--month", nargs="?", const=datetime.now().month, type=int, 
 parser.add_argument("--json", action="store_true", help="output data JSON format")
 parser.add_argument("-g", "--gigabyte", action="store_true", help="show data usage in giga byte (GB)")
 parser.add_argument("--since", type=str, help="show data usage after a certain time")
-parser.add_argument("--style", choices=["bar", "compact", "spark"], default="bar", help="graph display style (default: bar)")
+parser.add_argument("--style", choices=["bar", "compact", "spark", "norm"], default="bar", help="graph display style (default: bar)")
 parser.add_argument("-V", "--version", action="version", version=f'v{VERSION}')
 
 args = parser.parse_args()
