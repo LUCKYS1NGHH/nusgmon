@@ -123,5 +123,10 @@ git checkout -b feature/your-feature
 - Write and test your changes (add tests if possible).
 - Submit a pull request with a clear description of what you changed and why.
 
+
+## Reporting issues
+Please.. if you are facing any issue with nusgmon, please open a GitHub issue with details.
+
+
 ## Author
 LUCKYS1NGHH
