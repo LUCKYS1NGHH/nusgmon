@@ -528,8 +528,8 @@ parser = argparse.ArgumentParser(
             "  nusgmon --iface wlan0 --style compact --thisweek  Show current week's usage in compact style of only wlan0 (WiFi) interface"
     ))
 
-subparsers = parser.add_subparsers(dest="command")
-record_parser = subparsers.add_parser("record")
+sub = parser.add_subparsers(dest="command")
+record_parser = sub.add_parser("record", help="Start recording network usage")
 
 record_parser.add_argument("-w", "--wait", type=float, help="record after certain seconds (default: 3)")
 record_parser.add_argument("-d", "--dry-run", action="store_true", help="prevent logging to database")
@@ -537,12 +537,10 @@ record_parser.add_argument("-v", "--verbose", action="store_true", help="enable 
 record_parser.add_argument("--json", action="store_true", help="output data JSON format")
 record_parser.add_argument("--iface", type=str, default=None, help="record a specific interface data usage only (default all in bundle)")
 
-db_parser = subparsers.add_parser("db")
+db_parser = sub.add_parser("db", help="Database maintenance")
 db_parser.add_argument("--stats", action="store_true", help="show database stats")
 db_parser.add_argument("--json", action="store_true", help="output data JSON format")
 db_parser.add_argument("--prune", type=int, metavar="DAYS", help="delete data older than N days")
-
-subparsers.add_parser("interfaces", help="List available network interfaces")
 
 parser.add_argument("--yesterday", action="store_true", help="show yesterday's usage")
 parser.add_argument("--today", action="store_true", help="show today's usage")
@@ -555,6 +553,8 @@ parser.add_argument("--since", type=str, help="show data usage after a certain t
 parser.add_argument("--style", choices=["bar", "compact", "spark", "norm"], default="bar", help="graph display style (default: bar)")
 parser.add_argument("-V", "--version", action="version", version=f'v{VERSION}')
 parser.add_argument("--iface", type=str, help="View a specific interface data usage only (default all in bundle)")
+
+sub.add_parser("interfaces", help="List available network interfaces")
 
 args = parser.parse_args()
 
