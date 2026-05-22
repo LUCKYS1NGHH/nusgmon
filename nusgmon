@@ -14,6 +14,8 @@ VERSION = "1.7.0"
 
 
 BOLD = "\033[1m"
+DIM = "\033[2m"
+RED = "\033[91m"
 BLUE = "\033[94m"
 GREEN = "\033[32m"
 RESET = "\033[0m"
@@ -30,7 +32,8 @@ CREATE TABLE IF NOT EXISTS data_usage (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     timestamp INTEGER NOT NULL,
     bytes_sent INTEGER NOT NULL,
-    bytes_recv INTEGER NOT NULL
+    bytes_recv INTEGER NOT NULL,
+    iface TEXT DEFAULT 'all'
 )""")
 
 cur.execute("CREATE INDEX IF NOT EXISTS idx_timestamp ON data_usage(timestamp)")
@@ -51,11 +54,12 @@ def to_gb(_bytes): return _bytes / (1024 ** 3)
 def fmt_unixtime(unixtime, format=None):
     return datetime.fromtimestamp(unixtime).strftime("%Y-%m-%d %H:%M:%S" if not format else format)
 
-def current_data_json_output(total_recv, total_sent, download, upload):
+def current_data_json_output(total_recv, total_sent, download, upload, iface):
     """Just return the current data with pretty json"""
 
     output = {
             'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'interface': iface,
             'total_bytes_sent': total_sent,
             'total_bytes_sent_mb': round(to_mb(total_sent)),
             'total_bytes_recv': total_recv,
@@ -81,10 +85,22 @@ def calculate_usage(rows):
 
     return total_upload, total_download
 
-def log_net_usage(wait=None, dry_run=False, verbose=False, json_output=False):
+def get_iface_counters(iface=None):
+    """Return net_io_counters for a specific iface or all combined."""
+    if iface:
+        counters = psutil.net_io_counters(pernic=True)
+        if iface not in counters:
+            print(f"{RED}Interface '{iface}' not found.{RESET}\nAvailable: {', '.join(counters.keys())}")
+            exit()
+        return counters[iface]
+    return psutil.net_io_counters()
+
+def log_net_usage(wait=None, dry_run=False, verbose=False, json_output=False, iface=None):
     wait = 3 if wait is None else wait
 
-    old = psutil.net_io_counters()
+    old  = get_iface_counters(iface)
+    iface_label = iface or "all"
+
     count = 0
 
     while running:
@@ -92,7 +108,7 @@ def log_net_usage(wait=None, dry_run=False, verbose=False, json_output=False):
             print(f"\nWait {wait} seconds...\n")
         time.sleep(wait)
 
-        new = psutil.net_io_counters()
+        new = get_iface_counters(iface)
 
         if new.bytes_recv < old.bytes_recv or new.bytes_sent < old.bytes_sent:
             # reboot or interface reset
@@ -104,20 +120,20 @@ def log_net_usage(wait=None, dry_run=False, verbose=False, json_output=False):
         upload = new.bytes_sent - old.bytes_sent
 
         if json_output:
-            print(current_data_json_output(new.bytes_recv, new.bytes_sent, download, upload))
+            print(current_data_json_output(new.bytes_recv, new.bytes_sent, download, upload, iface_label))
 
         elif verbose:
-            print(f"{"-" * 8} {datetime.now().strftime("%Y-%m-%d %H:%M:%S")} {"-" * 8}")
+            print(f"{"-" * 6} {datetime.now().strftime("%Y-%m-%d %H:%M:%S")} {DIM}[{iface_label}]{RESET} {"-" * 6}")
             print(f"Total Megabytes Received : {round(to_mb(new.bytes_recv))} MB")
             print(f"Total Megabytes Sent     : {round(to_mb(new.bytes_sent))} MB")
             print(f"Download                 : {(download / wait) / 1024:.2f} KB/s")
             print(f"Upload                   : {(upload / wait) / 1024:.2f} KB/s")
-            print("-" * 37)
+            print("-" * 39)
 
         if not dry_run:
             count += 1
-            cur.execute("INSERT INTO data_usage (timestamp, bytes_sent, bytes_recv) VALUES (?, ?, ?)",
-                (int(time.time()), new.bytes_sent, new.bytes_recv))
+            cur.execute("INSERT INTO data_usage (timestamp, bytes_sent, bytes_recv, iface) VALUES (?, ?, ?, ?)",
+                (int(time.time()), new.bytes_sent, new.bytes_recv, iface_label))
 
             if count >= 15:
                 conn.commit()
@@ -488,6 +504,7 @@ record_parser.add_argument("-w", "--wait", type=float, help="record after certai
 record_parser.add_argument("-d", "--dry-run", action="store_true", help="prevent logging to database")
 record_parser.add_argument("-v", "--verbose", action="store_true", help="enable verbose output")
 record_parser.add_argument("--json", action="store_true", help="output data JSON format")
+record_parser.add_argument("--iface", type=str, default=None, help="record a specific interface data usage only (default all in bundle)")
 
 db_parser = subparsers.add_parser("db")
 db_parser.add_argument("--stats", action="store_true", help="show database stats")
@@ -511,7 +528,7 @@ args = parser.parse_args()
 if args.command in ("record", "db"):
     try:
         if args.command == "record":
-            log_net_usage(args.wait, args.dry_run, args.verbose, args.json)
+            log_net_usage(args.wait, args.dry_run, args.verbose, args.json, args.iface)
         else:
             if args.prune:
                 db_prune(args.prune)
