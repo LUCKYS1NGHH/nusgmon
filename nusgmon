@@ -275,7 +275,7 @@ def draw_graph(data, title, total, gb_show=False):
     print(f"\nTotal: {total['up']:.2f}↑ {total['down']:.2f}↓ {unit}")
 
 
-def fetch_net_usage(yesterday=False, today=False, thisweek=False, json_output=False, gb_show=False, since=None, month=None, date=None, style=None):
+def fetch_net_usage(yesterday=False, today=False, thisweek=False, json_output=False, gb_show=False, since=None, month=None, date=None, style=None, iface=None):
     now = datetime.now()
 
     if yesterday:
@@ -322,12 +322,20 @@ def fetch_net_usage(yesterday=False, today=False, thisweek=False, json_output=Fa
     else:
         return
 
-    rows = cur.execute("""
-        SELECT timestamp, bytes_sent, bytes_recv
+    params = (iface, t_start, t_end) if iface else (t_start, t_end)
+
+    where_clause = (
+    "WHERE iface = ? AND timestamp BETWEEN ? AND ?"
+    if iface else
+    "WHERE timestamp BETWEEN ? AND ?"
+    )
+
+    rows = cur.execute(f"""
+        SELECT timestamp, bytes_sent, bytes_recv, iface
         FROM data_usage
-        WHERE timestamp BETWEEN ? AND ?
+        {where_clause}
         ORDER BY timestamp ASC
-    """, (t_start, t_end)).fetchall()
+    """, params).fetchall()
 
     if len(rows) < 2:
         print("Not enough data.")
@@ -338,8 +346,8 @@ def fetch_net_usage(yesterday=False, today=False, thisweek=False, json_output=Fa
     total_down = 0
 
     for i in range(1, len(rows)):
-        t1, s1, r1 = rows[i - 1]
-        t2, s2, r2 = rows[i]
+        t1, s1, r1, _ = rows[i - 1]
+        t2, s2, r2, _ = rows[i]
         up   = max(0, s2 - s1)
         down = max(0, r2 - r1)
         dt   = datetime.fromtimestamp(t2)
@@ -397,6 +405,9 @@ def fetch_net_usage(yesterday=False, today=False, thisweek=False, json_output=Fa
     else:
         title = f"Month {month} Usage"
         data = dict(sorted(data.items(), key=lambda x: int(x[0])))
+
+    if iface:
+        title += f" [{iface}]"
 
     total = {
         "up": round(convert(total_up), 2),
@@ -521,6 +532,7 @@ parser.add_argument("-g", "--gigabyte", action="store_true", help="show data usa
 parser.add_argument("--since", type=str, help="show data usage after a certain time")
 parser.add_argument("--style", choices=["bar", "compact", "spark", "norm"], default="bar", help="graph display style (default: bar)")
 parser.add_argument("-V", "--version", action="version", version=f'v{VERSION}')
+parser.add_argument("--iface", type=str, help="View a specific interface data usage only (default all in bundle)")
 
 args = parser.parse_args()
 
@@ -538,7 +550,7 @@ if args.command in ("record", "db"):
         conn.commit()
         conn.close()
 else:
-    fetch_kwargs = dict(json_output=args.json, gb_show=args.gigabyte, style=args.style)
+    fetch_kwargs = dict(json_output=args.json, gb_show=args.gigabyte, style=args.style, iface=args.iface)
     fetch_net_usage(
         yesterday = args.yesterday or False,
         today     = args.today     or not any([args.yesterday, args.thisweek, args.month, args.since, args.date]),
