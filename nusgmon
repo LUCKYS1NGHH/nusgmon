@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 
 
-VERSION = "1.8.0"
+VERSION = "1.8.1"
 
 
 BOLD = "\033[1m"
@@ -422,17 +422,20 @@ def db_stats(json_output=False):
     count  = conn.execute("SELECT COUNT(*) FROM data_usage").fetchone()[0]
     oldest = conn.execute("SELECT MIN(timestamp) FROM data_usage").fetchone()[0]
     newest = conn.execute("SELECT MAX(timestamp) FROM data_usage").fetchone()[0]
-    most_traffic = conn.execute("""SELECT timestamp as day,
-        SUM(bytes_sent) as total_sent,
-        SUM(bytes_recv) as total_recv,
-        SUM(bytes_sent + bytes_recv) as total
-    FROM data_usage GROUP BY day
-    ORDER BY total DESC LIMIT 1""").fetchone()[0]
-    least_traffic = conn.execute("""SELECT timestamp as day,
-        SUM(bytes_sent) as total_sent,
-        SUM(bytes_recv) as total_recv,
-        SUM(bytes_sent + bytes_recv) as total
-    FROM data_usage GROUP BY day ORDER BY total ASC LIMIT 1""").fetchone()[0]
+    most_traffic = conn.execute("""
+    SELECT (timestamp / 86400) * 86400 AS day,
+        SUM(bytes_sent + bytes_recv) AS total
+    FROM data_usage
+    GROUP BY day
+    ORDER BY total DESC LIMIT 1
+    """).fetchone()[0]
+    least_traffic = conn.execute("""
+        SELECT (timestamp / 86400) * 86400 AS day,
+            SUM(bytes_sent + bytes_recv) AS total
+        FROM data_usage
+        GROUP BY day
+        ORDER BY total ASC LIMIT 1
+    """).fetchone()[0]
     size   = os.path.getsize(DB_FILE) / 1024
 
     fmt_oldest = fmt_unixtime(oldest)
