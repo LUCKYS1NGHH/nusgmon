@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-import psutil, os, signal, json
+import psutil, os, signal, json, threading
 import argparse, sys
 import time, sqlite3
 from datetime import datetime, timedelta
 from collections import defaultdict
 
 
-VERSION = "1.8.1"
+VERSION = "1.9.0"
 
 
 BOLD = "\033[1m"
@@ -20,7 +20,10 @@ DIR = os.path.expanduser("~/.nusgmon")
 DB_FILE = os.path.join(DIR, "db.sqlite")
 os.makedirs(DIR, exist_ok=True)
 
-conn = sqlite3.connect(DB_FILE)
+VIRTUAL_IFACE_PREFIXES = ("tun", "tap", "wg", "virbr", "docker", "veth", "br-", "lo")
+
+db_lock = threading.Lock()
+conn = sqlite3.connect(DB_FILE, check_same_thread=False)
 cur = conn.cursor()
 
 cur.execute("""
@@ -120,12 +123,13 @@ def log_net_usage(wait=None, dry_run=False, verbose=False, json_output=False, if
 
         if not dry_run:
             count += 1
-            cur.execute("INSERT INTO data_usage (timestamp, bytes_sent, bytes_recv, iface) VALUES (?, ?, ?, ?)",
-                (int(time.time()), new.bytes_sent, new.bytes_recv, iface_label))
+            with db_lock:
+                cur.execute("INSERT INTO data_usage (timestamp, bytes_sent, bytes_recv, iface) VALUES (?, ?, ?, ?)",
+                    (int(time.time()), new.bytes_sent, new.bytes_recv, iface_label))
 
-            if count >= 15:
-                conn.commit()
-                count = 0
+                if count >= 15:
+                    conn.commit()
+                    count = 0
 
         old = new
 
@@ -507,7 +511,7 @@ record_parser.add_argument("-w", "--wait", type=float, help="record after certai
 record_parser.add_argument("-d", "--dry-run", action="store_true", help="prevent logging to database")
 record_parser.add_argument("-v", "--verbose", action="store_true", help="enable verbose output")
 record_parser.add_argument("--json", action="store_true", help="output data JSON format")
-record_parser.add_argument("--iface", type=str, default=None, help="record a specific interface data usage only (default all in bundle)")
+record_parser.add_argument("--iface", type=str, nargs="+", default=None, help="interface(s) to record (default all in bundle)")
 
 db_parser = sub.add_parser("db", help="Database maintenance")
 db_parser.add_argument("--stats", action="store_true", help="show database stats")
@@ -534,9 +538,22 @@ args = parser.parse_args()
 if args.command in ("record", "db", "interfaces"):
     try:
         if args.command == "record":
-            log_net_usage(args.wait, args.dry_run, args.verbose, args.json, args.iface)
+            ifaces = args.iface or [None] # none means all combined
+            if len(ifaces) == 1:
+                log_net_usage(args.wait, args.dry_run, args.verbose, args.json, ifaces[0])
+            else:
+                threads = []
+                for iface in ifaces:
+                    if any(iface.startswith(p) for p in VIRTUAL_IFACE_PREFIXES):
+                        print(f"{BOLD}Warning:{RESET} '{iface}' is a virtual interface. Traffic here is already captured by your physical interface and will be double-counted, so it's not recommended to record.")
+                    t = threading.Thread(target=log_net_usage, args=(args.wait, args.dry_run, args.verbose, False, iface), daemon=True)
+                    t.start()
+                    threads.append(t)
+                for t in threads:
+                    t.join()
         elif args.command == "interfaces":
             list_interfaces()
+
         else:
             if args.prune:
                 db_prune(args.prune)
