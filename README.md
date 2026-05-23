@@ -15,6 +15,10 @@ Start recording network usage:
 
 `nusgmon record`
 
+Start recording network usage every second and of a specific interface only:
+
+`nusgmon record -w 1 --iface wlp2s0`
+
 View today's usage:
 
 `nusgmon --today`
@@ -32,6 +36,8 @@ Prune records before 30 days:
 `nusgmon db --prune 30`
 
 ## Features
+
+- Record a specific interface data usage or of all as bundle
 
 - Lightweight network usage monitor
 
