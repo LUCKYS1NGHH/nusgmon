@@ -1,12 +1,8 @@
 #!/usr/bin/env python3
-import psutil
-import time
-import sqlite3
+import psutil, os, signal, json
+import argparse, sys
+import time, sqlite3
 from datetime import datetime, timedelta
-import argparse
-import os
-import signal
-import json
 from collections import defaultdict
 
 
@@ -51,16 +47,6 @@ signal.signal(signal.SIGINT, handle_term)
 def to_mb(_bytes): return _bytes / 1024 ** 2
 def to_gb(_bytes): return _bytes / (1024 ** 3)
 
-def fmt_bytes(n, gb=False):
-    """Return (value-float, unit-str) for display"""
-    if gb:
-        return n / (1024 ** 3), "GB"
-    if n >= 1024 ** 3:
-        return n / (1024 ** 3), "GB"
-    if n >= 1024 ** 2:
-        return n / (1024 ** 2), "MB"
-    return n / 1024, "KB"
-
 def fmt_unixtime(unixtime, format=None):
     return datetime.fromtimestamp(unixtime).strftime("%Y-%m-%d %H:%M:%S" if not format else format)
 
@@ -87,29 +73,13 @@ def current_data_json_output(total_recv, total_sent, download, upload, iface):
     }
     return json.dumps(output, indent=3)
 
-def calculate_usage(rows):
-    total_upload = 0
-    total_download = 0
-
-    for i in range(1, len(rows)):
-        prev_sent, prev_recv = rows[i-1]
-        curr_sent, curr_recv = rows[i]
-
-        if curr_sent >= prev_sent:
-            total_upload += curr_sent - prev_sent
-
-        if curr_recv >= prev_recv:
-            total_download += curr_recv - prev_recv
-
-    return total_upload, total_download
-
 def get_iface_counters(iface=None):
     """Return net_io_counters for a specific iface or all combined."""
     if iface:
         counters = psutil.net_io_counters(pernic=True)
         if iface not in counters:
             print(f"{RED}Interface '{iface}' not found.{RESET}\nAvailable: {', '.join(counters.keys())}")
-            exit()
+            sys.exit(1)
         return counters[iface]
     return psutil.net_io_counters()
 
@@ -139,7 +109,7 @@ def log_net_usage(wait=None, dry_run=False, verbose=False, json_output=False, if
 
         if json_output:
             print(current_data_json_output(new.bytes_recv, new.bytes_sent, download, upload, iface_label))
-
+            sys.stdout.flush()
         elif verbose:
             print(f"{"-" * 6} {datetime.now().strftime("%Y-%m-%d %H:%M:%S")} {DIM}[{iface_label}]{RESET} {"-" * 6}")
             print(f"Total Megabytes Received : {round(to_mb(new.bytes_recv))} MB")
@@ -489,7 +459,6 @@ def db_stats(json_output=False):
             print(f"  {'Newest record':<18} {fmt_newest}")
         print(f"  {'Most Traffic':<18} {fmt_mt}")
         print(f"  {'Least Traffic':<18} {fmt_lt}")
-    print()
 
 
 def db_prune(days):
