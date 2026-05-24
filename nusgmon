@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 
 
-VERSION = "1.9.0"
+VERSION = "1.9.1"
 
 
 BOLD = "\033[1m"
@@ -37,6 +37,12 @@ CREATE TABLE IF NOT EXISTS data_usage (
 
 cur.execute("CREATE INDEX IF NOT EXISTS idx_timestamp ON data_usage(timestamp)")
 
+try:
+    cur.execute("ALTER TABLE data_usage ADD COLUMN 'iface' TEXT")
+except sqlite3.OperationalError:
+    pass
+
+conn.commit()
 
 running = True
 
