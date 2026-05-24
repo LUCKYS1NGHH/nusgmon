@@ -1,6 +1,5 @@
 [Unit]
 Description=System network usage monitoring tool
-Requires=network.target
 
 [Service]
 ExecStart=
