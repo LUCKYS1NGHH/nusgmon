@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 
 
-VERSION = "1.9.2"
+VERSION = "1.9.3"
 
 
 BOLD = "\033[1m"
@@ -21,11 +21,20 @@ DIR = os.path.expanduser("~/.nusgmon")
 DB_FILE = os.path.join(DIR, "db.sqlite")
 
 # Config file
-CFG_DIR = os.path.join(os.path.expanduser("~/.config"), "nusgmon")
-CFG_FILE = os.path.join(CFG_DIR, "config.toml")
+NORMCONF = os.path.expanduser("~/.config/nusgmon")
+ROOTCONF = "/etc/nusgmon"
+
+if os.path.isdir(NORMCONF):
+    CFG_DIR = NORMCONF
+elif os.path.isdir(ROOTCONF):
+    CFG_DIR = ROOTCONF
+else:
+    CFG_DIR = None
+
+CFG_FILE = os.path.join(CFG_DIR, "config.toml") if CFG_DIR else None
 
 os.makedirs(DIR, exist_ok=True)
-os.makedirs(CFG_DIR, exist_ok=True)
+os.makedirs(CFG_DIR, exist_ok=True) if CFG_DIR else None
 
 
 VIRTUAL_IFACE_PREFIXES = ("tun", "tap", "wg", "virbr", "docker", "veth", "br-", "lo")
@@ -52,9 +61,12 @@ except sqlite3.OperationalError:
 
 conn.commit()
 
-# read the config
-with open(CFG_FILE, "rb") as f:
-    conf = tomllib.load(f)
+# config file reading handling
+if CFG_FILE and os.path.isfile(CFG_FILE):
+    with open(CFG_FILE, "rb") as f:
+        conf = tomllib.load(f)
+else:
+    conf = {'config': {}}
 
 running = True
 
