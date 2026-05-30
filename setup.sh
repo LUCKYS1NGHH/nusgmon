@@ -11,6 +11,7 @@ die()   { echo -e "${RED}[✗]${NC} $*" >&2; exit 1; }
 # preflight checks
 [[ -f nusgmon ]]         || die "nusgmon binary not found. Run this from the repo root."
 [[ -f nusgmon.service ]] || die "nusgmon.service not found. Run this from the repo root."
+[[ -f config.toml ]]     || die "config.toml not found. Run this from the repo root."
 
 
 command -v python3 &>/dev/null || die "python3 is not installed."
@@ -35,10 +36,16 @@ done
 if [[ "$EUID" -eq 0 ]]; then
     SERVICE_DIR="/etc/systemd/system"
     BIN_PATH="/usr/local/bin/nusgmon"
+    CONFIG_DIR="/etc/nusgmon"
 
     info "Installing nusgmon system-wide.."
+    mkdir -p "$CONFIG_DIR"
     install -m 755 nusgmon "$BIN_PATH"
     install -m 644 nusgmon.service "$SERVICE_DIR/nusgmon.service"
+    install -m 544 config.toml "$CONFIG_DIR/config.toml"
+
+    chmod 755 "$CONFIG_DIR"
+
     sed -i "s|^ExecStart=.*|ExecStart=$BIN_PATH record -w $interval|" "$SERVICE_DIR/nusgmon.service"
 
     systemctl daemon-reload
@@ -50,11 +57,16 @@ else
     BIN_DIR="$HOME/.local/bin"
     SERVICE_DIR="$HOME/.config/systemd/user"
     BIN_PATH="$BIN_DIR/nusgmon"
+    CONFIG_DIR="$HOME/.config/nusgmon"
 
     info "Installing nusgmon for current user.."
-    mkdir -p "$BIN_DIR" "$SERVICE_DIR"
+    mkdir -p "$BIN_DIR" "$SERVICE_DIR" "$CONFIG_DIR"
     install -m 755 nusgmon "$BIN_PATH"
     install -m 644 nusgmon.service "$SERVICE_DIR/nusgmon.service"
+    install -m 644 config.toml "$CONFIG_DIR/config.toml"
+
+    chmod 755 "$CONFIG_DIR"
+
     sed -i "s|^ExecStart=.*|ExecStart=$BIN_PATH record -w $interval|" "$SERVICE_DIR/nusgmon.service"
 
     systemctl --user daemon-reload
@@ -70,5 +82,4 @@ else
     fi
 fi
 
-echo ""
 info "Done! Interval set to ${interval}s."
