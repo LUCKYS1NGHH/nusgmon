@@ -1,0 +1,4 @@
+[config]
+
+# Choose the default graph style. available: bar, compact, norm, spark
+usage_graph_style = "bar"

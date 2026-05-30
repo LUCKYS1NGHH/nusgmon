@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 
 
-VERSION = "1.9.1"
+VERSION = "1.9.2"
 
 
 BOLD = "\033[1m"
@@ -440,7 +440,11 @@ def fetch_net_usage(yesterday=False, today=False, thisweek=False, json_output=Fa
         pretty = json.dumps(data, indent=3)
         print(pretty)
     else:
-        renderer = GRAPH_STYLES.get(style, draw_graph)
+        usg_graph_style_cfg = conf['config'].get('usage_graph_style')
+        if usg_graph_style_cfg and isinstance(usg_graph_style_cfg, str):
+            renderer  = GRAPH_STYLES.get(usg_graph_style_cfg, draw_graph)
+        else:
+            renderer = GRAPH_STYLES.get(style, draw_graph)
         renderer(data, title, total, gb_show=gb_show)
 
 
