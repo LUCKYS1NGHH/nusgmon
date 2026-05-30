@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import psutil, os, signal, json, threading
-import argparse, sys
+import argparse, sys, tomllib
 import time, sqlite3
 from datetime import datetime, timedelta
 from collections import defaultdict
@@ -16,9 +16,17 @@ BLUE = "\033[94m"
 GREEN = "\033[32m"
 RESET = "\033[0m"
 
+# Database file
 DIR = os.path.expanduser("~/.nusgmon")
 DB_FILE = os.path.join(DIR, "db.sqlite")
+
+# Config file
+CFG_DIR = os.path.join(os.path.expanduser("~/.config"), "nusgmon")
+CFG_FILE = os.path.join(CFG_DIR, "config.toml")
+
 os.makedirs(DIR, exist_ok=True)
+os.makedirs(CFG_DIR, exist_ok=True)
+
 
 VIRTUAL_IFACE_PREFIXES = ("tun", "tap", "wg", "virbr", "docker", "veth", "br-", "lo")
 
@@ -43,6 +51,10 @@ except sqlite3.OperationalError:
     pass
 
 conn.commit()
+
+# read the config
+with open(CFG_FILE, "rb") as f:
+    conf = tomllib.load(f)
 
 running = True
 
