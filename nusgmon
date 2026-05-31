@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 
 
-VERSION = "1.9.4"
+VERSION = "1.9.5"
 
 
 BOLD = "\033[1m"
@@ -415,7 +415,7 @@ def fetch_net_usage(config, yesterday=False, today=False, thisweek=False, json_o
         total_up += up
         total_down += down
 
-    convert, _ = unit_type(conf, kb_show=kb_show, gb_show=gb_show)
+    convert, unit = unit_type(conf, kb_show=kb_show, gb_show=gb_show)
 
     data = {
         k: {
@@ -471,6 +471,7 @@ def fetch_net_usage(config, yesterday=False, today=False, thisweek=False, json_o
 
     if json_output:
         data["total"] = [total]
+        data['unit'] = unit
         pretty = json.dumps(data, indent=3)
         print(pretty)
     else:
