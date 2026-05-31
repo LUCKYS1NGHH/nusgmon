@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 
 
-VERSION = "1.9.3"
+VERSION = "1.9.4"
 
 
 BOLD = "\033[1m"
@@ -77,11 +77,33 @@ def handle_term(signum, frame):
 signal.signal(signal.SIGTERM, handle_term)
 signal.signal(signal.SIGINT, handle_term)
 
+def to_kb(_bytes): return _bytes / 1024
 def to_mb(_bytes): return _bytes / 1024 ** 2
 def to_gb(_bytes): return _bytes / (1024 ** 3)
 
 def fmt_unixtime(unixtime, format=None):
     return datetime.fromtimestamp(unixtime).strftime("%Y-%m-%d %H:%M:%S" if not format else format)
+
+
+def unit_type(config, kb_show=False, gb_show=False):
+    """Check for the unit type"""
+
+    UNIT_MAP = {
+        "gb": (to_gb, "GB"),
+        "mb": (to_mb, "MB"),
+        "kb": (to_kb, "KB")
+    }
+
+    if gb_show:
+       convert, unit = to_gb, "GB"
+    elif kb_show:
+        convert, unit = to_kb, "KB"
+    elif config['config']['default_unit']:
+        convert, unit = UNIT_MAP.get(config['config']['default_unit'].lower(), (to_mb, "MB"))
+    else:
+        convert, unit = to_mb, "MB"
+
+    return convert, unit
 
 def list_interfaces():
     ifaces = psutil.net_io_counters(pernic=True)
@@ -180,7 +202,7 @@ def _to_spark(values):
     return "".join(SPARKS[int((v - lo) / span * (len(SPARKS) - 1))] for v in values)
 
 
-def draw_compact(data, title, total, gb_show=False):
+def draw_compact(data, title, total, config, kb_show=False, gb_show=False):
     """
     Single-line-per-entry, no bars. Good for quick glance or narrow terminals.
 
@@ -192,7 +214,7 @@ def draw_compact(data, title, total, gb_show=False):
       ...
       Total: 12.34↑  45.67↓ MB
     """
-    unit = "GB" if gb_show else "MB"
+    _, unit = unit_type(config, kb_show=kb_show, gb_show=gb_show)
     print(f"\n  {title}")
     print("  " + "─" * (len(title) + 2))
     for label, val in data.items():
@@ -206,8 +228,8 @@ def draw_compact(data, title, total, gb_show=False):
     print(f"\n  Total: {GREEN}{total['up']:.2f}↑{RESET}  {BLUE}{total['down']:.2f}↓{RESET} {unit}")
 
 
-def draw_spark(data, title, total, gb_show=False):
-    unit   = "GB" if gb_show else "MB"
+def draw_spark(data, title, total, config, kb_show=False, gb_show=False):
+    _, unit  = unit_type(config, kb_show=kb_show, gb_show=gb_show)
     labels = list(data.keys())
     ups    = [v["up"]   for v in data.values()]
     downs  = [v["down"] for v in data.values()]
@@ -241,8 +263,8 @@ def draw_spark(data, title, total, gb_show=False):
     print(f"\n  Total: {GREEN}{total['up']:.2f}↑{RESET}  {BLUE}{total['down']:.2f}↓{RESET} {unit}")
 
 
-def draw_norm(data, title, total, gb_show=False):
-    unit = "GB" if gb_show else "MB"
+def draw_norm(data, title, total, config, kb_show=False, gb_show=False):
+    _, unit  = unit_type(config, kb_show=kb_show, gb_show=gb_show)
     WIDTH = 25
 
     max_up = max(v["up"] for v in data.values()) or 1
@@ -270,7 +292,7 @@ def draw_norm(data, title, total, gb_show=False):
     print(f"\n  Total: {GREEN}{total['up']:.2f}↑{RESET}  {BLUE}{total['down']:.2f}↓{RESET} {unit}")
 
 
-def draw_graph(data, title, total, gb_show=False):
+def draw_graph(data, title, total, config, kb_show=False, gb_show=False):
     max_val = max(
         max(v["up"], v["down"]) for v in data.values()
     ) if data else 0
@@ -282,7 +304,7 @@ def draw_graph(data, title, total, gb_show=False):
     print(" ", "-" * (len(title) + 2))
     print(f"  {GREEN}█ Upload{RESET}  {BLUE}█ Download{RESET}\n")
 
-    unit = "GB" if gb_show else "MB"
+    _, unit  = unit_type(config, kb_show=kb_show, gb_show=gb_show)
 
     for label, val in data.items():
         up = val["up"]
@@ -301,7 +323,7 @@ def draw_graph(data, title, total, gb_show=False):
     print(f"\nTotal: {total['up']:.2f}↑ {total['down']:.2f}↓ {unit}")
 
 
-def fetch_net_usage(yesterday=False, today=False, thisweek=False, json_output=False, gb_show=False, since=None, month=None, date=None, style=None, iface=None):
+def fetch_net_usage(config, yesterday=False, today=False, thisweek=False, json_output=False, kb_show=False, gb_show=False, since=None, month=None, date=None, style=None, iface=None):
     now = datetime.now()
 
     if yesterday:
@@ -393,7 +415,7 @@ def fetch_net_usage(yesterday=False, today=False, thisweek=False, json_output=Fa
         total_up += up
         total_down += down
 
-    convert = to_gb if gb_show else to_mb
+    convert, _ = unit_type(conf, kb_show=kb_show, gb_show=gb_show)
 
     data = {
         k: {
@@ -455,7 +477,7 @@ def fetch_net_usage(yesterday=False, today=False, thisweek=False, json_output=Fa
         usg_graph_style_cfg = conf['config'].get('usage_graph_style')
         renderer = (GRAPH_STYLES.get(style) or
             GRAPH_STYLES.get(usg_graph_style_cfg if isinstance(usg_graph_style_cfg, str) else '', draw_graph))
-        renderer(data, title, total, gb_show=gb_show)
+        renderer(data, title, total, config, kb_show=kb_show, gb_show=gb_show)
 
 
 def db_stats(json_output=False):
@@ -560,6 +582,7 @@ parser.add_argument("--thisweek", action="store_true", help="show this week's us
 parser.add_argument("--date", type=str, metavar="YYYY-MM-DD", help="show given date's usage")
 parser.add_argument("--month", nargs="?", const=datetime.now().month, type=int, choices=range(1, 13), metavar="N", help="show any month's usage 1-12 (default: current month)")
 parser.add_argument("--json", action="store_true", help="output data JSON format")
+parser.add_argument("-k", "--kilobyte", action="store_true", help="show data usage in kilo byte (KB)")
 parser.add_argument("-g", "--gigabyte", action="store_true", help="show data usage in giga byte (GB)")
 parser.add_argument("--since", type=str, help="show data usage after a certain time")
 parser.add_argument("--style", choices=["bar", "compact", "spark", "norm"], help="graph display style (default: bar)")
@@ -597,8 +620,9 @@ if args.command in ("record", "db", "interfaces"):
         conn.commit()
         conn.close()
 else:
-    fetch_kwargs = dict(json_output=args.json, gb_show=args.gigabyte, style=args.style, iface=args.iface)
+    fetch_kwargs = dict(json_output=args.json, kb_show=args.kilobyte, gb_show=args.gigabyte, style=args.style, iface=args.iface)
     fetch_net_usage(
+        conf,
         yesterday = args.yesterday or False,
         today     = args.today     or not any([args.yesterday, args.thisweek, args.month, args.since, args.date]),
         thisweek  = args.thisweek  or False,

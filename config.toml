@@ -2,3 +2,6 @@
 
 # Choose the default graph style. available: bar, compact, norm, spark
 usage_graph_style = "bar"
+
+# Default display unit: "kb", "mb", "gb"
+default_unit = "kb"
