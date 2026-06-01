@@ -51,6 +51,8 @@ Prune records before 30 days:
 
 - Works with systemd
 
+- Configuration file support
+
 - Sends data usage notification alerts (needs [nusgmon-alert](https://github.com/LUCKYS1NGHH/nusgmon-alert.sh))
 
 
