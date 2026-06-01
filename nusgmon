@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 
 
-VERSION = "1.9.5"
+VERSION = "1.9.6"
 
 
 BOLD = "\033[1m"
@@ -368,7 +368,19 @@ def fetch_net_usage(config, yesterday=False, today=False, thisweek=False, json_o
         t_start = int(strp_dt.timestamp())
         t_end = t_start + 86400
     else:
-        return
+        default_view = config['config']['default_view']
+        VIEW_MAP = {
+            "today":     {"today": True},
+            "yesterday": {"yesterday": True},
+            "thisweek":  {"thisweek": True},
+            "month":     {"month": now.month},
+        }
+        if default_view in VIEW_MAP:
+            return fetch_net_usage(config, **VIEW_MAP[default_view], json_output=json_output,
+                                   kb_show=kb_show, gb_show=gb_show, style=style, iface=iface)
+        else:
+            print(f"\n{RED}Config error: '{default_view}' is not known for usage default view.{RESET}")
+            return
 
     params = (iface, t_start, t_end) if iface else (t_start, t_end)
 
@@ -625,7 +637,7 @@ else:
     fetch_net_usage(
         conf,
         yesterday = args.yesterday or False,
-        today     = args.today     or not any([args.yesterday, args.thisweek, args.month, args.since, args.date]),
+        today     = args.today     or False,
         thisweek  = args.thisweek  or False,
         month     = args.month     or False,
         since     = args.since     or False,
