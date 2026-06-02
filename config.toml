@@ -9,3 +9,7 @@ default_unit = "kb"
 # Default usage view : 'yesterday', 'today', 'thisweek', 'month'
 # NOTE: 'month' will always be the CURRENT MONTH
 default_view = "today"
+
+# Save the records at once after certain amount of records in database file
+# Higher values = more data loss if the process crashes unexpectedly
+save_records_after = 7

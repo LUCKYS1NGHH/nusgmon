@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 
 
-VERSION = "1.9.6"
+VERSION = "1.9.7"
 
 
 BOLD = "\033[1m"
@@ -148,6 +148,10 @@ def log_net_usage(wait=None, dry_run=False, verbose=False, json_output=False, if
     old  = get_iface_counters(iface)
     iface_label = iface or "all"
 
+    # get the config value to commit records after getting certain amount of records
+    value = conf['config'].get('save_records_after')
+    save_after = value if isinstance(value, int) else 7
+
     count = 0
 
     while running:
@@ -183,7 +187,7 @@ def log_net_usage(wait=None, dry_run=False, verbose=False, json_output=False, if
                 cur.execute("INSERT INTO data_usage (timestamp, bytes_sent, bytes_recv, iface) VALUES (?, ?, ?, ?)",
                     (int(time.time()), new.bytes_sent, new.bytes_recv, iface_label))
 
-                if count >= 15:
+                if count >= save_after:
                     conn.commit()
                     count = 0
 
