@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 from tomllib import TOMLDecodeError
 
-VERSION = "1.10.0"
+VERSION = "1.10.1"
 
 
 BOLD = "\033[1m"
@@ -63,10 +63,19 @@ conn.commit()
 
 # config file reading handling
 if CFG_FILE and os.path.isfile(CFG_FILE):
-    with open(CFG_FILE, "rb") as f:
-        conf = tomllib.load(f)
+    try:
+        with open(CFG_FILE, "rb") as f:
+            conf = tomllib.load(f)
+    except TOMLDecodeError as e:
+        print(f"\n{RED}Config error: {e}{RESET}")
+        sys.exit(1)
 else:
     conf = {'config': {}}
+
+
+# remove tomllib and it's relateds after got the config's json safely
+del tomllib, TOMLDecodeError
+
 
 running = True
 
