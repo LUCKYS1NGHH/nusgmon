@@ -4,9 +4,9 @@ import argparse, sys, tomllib
 import time, sqlite3
 from datetime import datetime, timedelta
 from collections import defaultdict
+from tomllib import TOMLDecodeError
 
-
-VERSION = "1.9.7"
+VERSION = "1.10.0"
 
 
 BOLD = "\033[1m"
@@ -134,7 +134,7 @@ def get_iface_counters(iface=None):
         counters = psutil.net_io_counters(pernic=True)
         if iface not in counters:
             print(f"{RED}Interface '{iface}' not found.{RESET}\nAvailable: {', '.join(counters.keys())}")
-            sys.exit(1)
+            return None
 
         if any(iface.startswith(p) for p in VIRTUAL_IFACE_PREFIXES):
             print(f"{BOLD}Warning:{RESET} '{iface}' is a virtual interface. Traffic here is already captured by your physical interface and will be double-counted.")
@@ -145,53 +145,75 @@ def get_iface_counters(iface=None):
 def log_net_usage(wait=None, dry_run=False, verbose=False, json_output=False, iface=None):
     wait = 3 if wait is None else wait
 
-    old  = get_iface_counters(iface)
-    iface_label = iface or "all"
+    values = conf['config'].get('record_iface')
 
-    # get the config value to commit records after getting certain amount of records
+    if iface is not None:
+        values = [iface] # override config entirely
+    elif (not isinstance(values, list)):
+        print(f"\n{RED}Config error: ifaces values is not list type.{RESET}")
+        return
+
     value = conf['config'].get('save_records_after')
     save_after = value if isinstance(value, int) else 7
 
-    count = 0
+    def record_iface(iface):
+        iface_label = iface or "all"
+        old = get_iface_counters(iface)
+        count = 0
 
-    while running:
-        if verbose and not json_output:
-            print(f"\nWait {wait} seconds...\n")
-        time.sleep(wait)
+        while running:
+            if verbose and not json_output:
+                print(f"\nWait {wait} seconds...\n")
+            time.sleep(wait)
+            new = get_iface_counters(iface)
 
-        new = get_iface_counters(iface)
+            if new.bytes_recv < old.bytes_recv or new.bytes_sent < old.bytes_sent:
+                old = new
+                continue
 
-        if new.bytes_recv < old.bytes_recv or new.bytes_sent < old.bytes_sent:
-            # reboot or interface reset
+            download = new.bytes_recv - old.bytes_recv
+            upload   = new.bytes_sent - old.bytes_sent
+
+            if json_output:
+                print(current_data_json_output(new.bytes_recv, new.bytes_sent, download, upload, iface_label))
+                sys.stdout.flush()
+            elif verbose:
+                print(f"{'-' * 6} {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} {DIM}[{iface_label}]{RESET} {'-' * 6}")
+                print(f"Total Megabytes Received : {round(to_mb(new.bytes_recv))} MB")
+                print(f"Total Megabytes Sent     : {round(to_mb(new.bytes_sent))} MB")
+                print(f"Download                 : {(download / wait) / 1024:.2f} KB/s")
+                print(f"Upload                   : {(upload / wait) / 1024:.2f} KB/s")
+                print("-" * 39)
+
+            if not dry_run:
+                count += 1
+                with db_lock:
+                    cur.execute(
+                        "INSERT INTO data_usage (timestamp, bytes_sent, bytes_recv, iface) VALUES (?, ?, ?, ?)",
+                        (int(time.time()), new.bytes_sent, new.bytes_recv, iface_label)
+                    )
+                    if count >= save_after:
+                        conn.commit()
+                        count = 0
+
             old = new
-            continue
 
-        # speed calculate
-        download = new.bytes_recv - old.bytes_recv
-        upload = new.bytes_sent - old.bytes_sent
-
-        if json_output:
-            print(current_data_json_output(new.bytes_recv, new.bytes_sent, download, upload, iface_label))
-            sys.stdout.flush()
-        elif verbose:
-            print(f"{"-" * 6} {datetime.now().strftime("%Y-%m-%d %H:%M:%S")} {DIM}[{iface_label}]{RESET} {"-" * 6}")
-            print(f"Total Megabytes Received : {round(to_mb(new.bytes_recv))} MB")
-            print(f"Total Megabytes Sent     : {round(to_mb(new.bytes_sent))} MB")
-            print(f"Download                 : {(download / wait) / 1024:.2f} KB/s")
-            print(f"Upload                   : {(upload / wait) / 1024:.2f} KB/s")
-            print("-" * 39)
-
-        if not dry_run:
-            count += 1
+        # flush remaining records on exit
+        if not dry_run and count > 0:
             with db_lock:
-                cur.execute("INSERT INTO data_usage (timestamp, bytes_sent, bytes_recv, iface) VALUES (?, ?, ?, ?)",
-                    (int(time.time()), new.bytes_sent, new.bytes_recv, iface_label))
+                conn.commit()
 
-                if count >= save_after:
-                    conn.commit()
-                    count = 0
+    threads = []
+    for iface_ in values:
+        if get_iface_counters(iface_) is None:  # skip unavailable interfaces
+            print(f"\n{BOLD}Skipping unavailable interface: {iface_}{RESET}\n")
+            continue
+        t = threading.Thread(target=record_iface, args=(iface_,), daemon=True)
+        t.start()
+        threads.append(t)
 
-        old = new
+    for t in threads:
+        t.join()
 
 
 def _to_spark(values):

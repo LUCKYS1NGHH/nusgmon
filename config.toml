@@ -13,3 +13,6 @@ default_view = "today"
 # Save the records at once after certain amount of records in database file
 # Higher values = more data loss if the process crashes unexpectedly
 save_records_after = 7
+
+# Record your desired interfaces usage parallelly (overrides if iface argument is passed)
+record_iface = ['wlp2s0', 'enp2s0']
