@@ -6,8 +6,8 @@ usage_graph_style = "bar"
 # Default display unit: 'kb', 'mb', 'gb'
 default_unit = "kb"
 
-# Default usage view : 'yesterday', 'today', 'thisweek', 'month'
-# NOTE: 'month' will always be the CURRENT MONTH
+# Default usage view, if no argument is given: 'yesterday', 'today', 'thisweek', 'month'
+# NOTE: 'month' will always be the CURRENT MONTH if it's set in config.
 default_view = "today"
 
 # Save the records at once after certain amount of records in database file
