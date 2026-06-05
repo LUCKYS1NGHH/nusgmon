@@ -14,5 +14,8 @@ default_view = "today"
 # Higher values = more data loss if the process crashes unexpectedly
 save_records_after = 7
 
+# Grace period in seconds before first write (lets the interfaces settle after boot)
+startup_grace_period = 10
+
 # Record your desired interfaces usage parallelly (overrides if iface argument is passed)
 record_iface = ['wlp2s0', 'enp2s0']

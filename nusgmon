@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 from tomllib import TOMLDecodeError
 
-VERSION = "1.10.1"
+VERSION = "1.10.2"
 
 
 BOLD = "\033[1m"
@@ -151,8 +151,19 @@ def get_iface_counters(iface=None):
         return counters[iface]
     return psutil.net_io_counters()
 
+def boot_stable_wait(conf):
+    """Let's interfaces setup on boot for certain seconds and then starts monitoring."""
+    sleep = conf['config'].get('startup_grace_period')
+
+    if not isinstance(sleep, int):
+        sleep = 5
+
+    time.sleep(sleep)
+
 def log_net_usage(wait=None, dry_run=False, verbose=False, json_output=False, iface=None):
     wait = 3 if wait is None else wait
+
+    boot_stable_wait(conf)
 
     values = conf['config'].get('record_iface')
 
