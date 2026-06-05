@@ -617,7 +617,7 @@ parser = argparse.ArgumentParser(
             "  nusgmon --since 2026-04-14 -g                     Since date, in GB\n"
             "  nusgmon --today --style compact                   Today usage in compact graph style\n"
             "  nusgmon db --stats                                Database info\n"
-            "  nusgmon record --iface tun0                       Record only the tun0 (VPN) interface data usage\n"
+            "  nusgmon record --iface eth0                       Record only the eth0 (Ethernet) interface data usage\n"
             "  nusgmon --iface wlan0 --style compact --thisweek  Show current week's usage in compact style of only wlan0 (WiFi) interface"
     ))
 
