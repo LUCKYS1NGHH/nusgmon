@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 from tomllib import TOMLDecodeError
 
-VERSION = "1.10.2"
+VERSION = "1.10.3"
 
 
 BOLD = "\033[1m"
@@ -635,18 +635,18 @@ db_parser.add_argument("--stats", action="store_true", help="show database stats
 db_parser.add_argument("--json", action="store_true", help="output data JSON format")
 db_parser.add_argument("--prune", type=int, metavar="DAYS", help="delete data older than N days")
 
-parser.add_argument("--yesterday", action="store_true", help="show yesterday's usage")
-parser.add_argument("--today", action="store_true", help="show today's usage")
-parser.add_argument("--thisweek", action="store_true", help="show this week's usage")
-parser.add_argument("--date", type=str, metavar="YYYY-MM-DD", help="show given date's usage")
-parser.add_argument("--month", nargs="?", const=datetime.now().month, type=int, choices=range(1, 13), metavar="N", help="show any month's usage 1-12 (default: current month)")
+parser.add_argument("-y", "--yesterday", action="store_true", help="show yesterday's usage")
+parser.add_argument("-t", "--today", action="store_true", help="show today's usage")
+parser.add_argument("-w", "--thisweek", action="store_true", help="show this week's usage")
+parser.add_argument("-d", "--date", type=str, metavar="YYYY-MM-DD", help="show given date's usage")
+parser.add_argument("-m", "--month", nargs="?", const=datetime.now().month, type=int, choices=range(1, 13), metavar="N", help="show any month's usage 1-12 (default: current month)")
 parser.add_argument("--json", action="store_true", help="output data JSON format")
 parser.add_argument("-k", "--kilobyte", action="store_true", help="show data usage in kilo byte (KB)")
 parser.add_argument("-g", "--gigabyte", action="store_true", help="show data usage in giga byte (GB)")
-parser.add_argument("--since", type=str, help="show data usage after a certain time")
-parser.add_argument("--style", choices=["bar", "compact", "spark", "norm"], help="graph display style (default: bar)")
+parser.add_argument("-S", "--since", type=str, help="show data usage after a certain time")
+parser.add_argument("-s", "--style", choices=["bar", "compact", "spark", "norm"], help="graph display style (default: bar)")
 parser.add_argument("-V", "--version", action="version", version=f'v{VERSION}')
-parser.add_argument("--iface", type=str, help="View a specific interface data usage only (default all in bundle)")
+parser.add_argument("-i", "--iface", type=str, help="View a specific interface data usage only (default all in bundle)")
 
 sub.add_parser("interfaces", help="List available network interfaces")
 
