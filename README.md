@@ -59,8 +59,8 @@ Prune records before 30 days:
 ## Dependencies
 Requires Python 3 and psutil library.
 
-```
-pip install psutil # or install `python-psutil` as system-wide through your package manager
+```bash
+pip install psutil # or install `python-psutil` system-wide through your package manager
 ```
 
 ## Installation
