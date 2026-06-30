@@ -1,13 +1,15 @@
 [config]
 
-# Choose the default graph style. available: bar, compact, norm, spark
+# Choose the default graph style
+# available: bar, compact, norm, spark
 usage_graph_style = "bar"
 
 # Default display unit: 'kb', 'mb', 'gb'
 default_unit = "kb"
 
-# Default usage view, if no argument is given: 'yesterday', 'today', 'thisweek', 'month'
-# NOTE: 'month' will always be the CURRENT MONTH if it's set in config.
+# Default usage view, if no argument is given.
+# available: 'yesterday', 'today', 'thisweek', 'month'
+# NOTE: 'month' will always be the CURRENT MONTH if it's set in default_view.
 default_view = "today"
 
 # Save the records at once after certain amount of records in database file
@@ -17,5 +19,5 @@ save_records_after = 7
 # Grace period in seconds before first write (lets the interfaces settle after boot)
 startup_grace_period = 10
 
-# Record your desired interfaces usage parallelly (overrides if iface argument is passed)
+# Record your desired interfaces usage parallelly (overrides if the 'iface' argument is passed)
 record_iface = ['wlp2s0', 'enp2s0']
