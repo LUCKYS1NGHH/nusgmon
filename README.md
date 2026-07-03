@@ -75,10 +75,6 @@ yay -S nusgmon-git
 The setup script installs the `nusgmon` program and performs the required
 file copy, permission, PATH variable etc. setup.
 
-> [!NOTE]
-> Run the script as root to install system-wide.
-> To install only for your user, just remove sudo from the command `sudo ./setup.sh`.
-
 ```bash
 git clone https://github.com/LUCKYS1NGHH/nusgmon.git
 cd nusgmon
@@ -89,31 +85,21 @@ sudo ./setup.sh
 <details>
 <summary> Uninstall </summary>
 
-#### If Arch Linux
+#### Arch Linux AUR
 ```bash
 yay -R nusgmon-git
 ```
 
-
 > Optional (removes the database):
 > `rm -rf ~/.nusgmon`
 
-#### If installed system-wide
+#### Other Distro
 
 ```bash
 sudo systemctl disable --now nusgmon
 sudo rm /etc/systemd/system/nusgmon.service
 sudo rm /usr/local/bin/nusgmon
 sudo systemctl daemon-reload
-```
-
-#### If installed as normal user
-
-```bash
-systemctl --user disable --now nusgmon
-rm ~/.config/systemd/user/nusgmon.service
-rm ~/.local/bin/nusgmon
-systemctl --user daemon-reload
 ```
 
 </details>
