@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 from tomllib import TOMLDecodeError
 
-VERSION = "1.10.3"
+VERSION = "1.10.4"
 
 
 BOLD = "\033[1m"
@@ -17,7 +17,7 @@ GREEN = "\033[32m"
 RESET = "\033[0m"
 
 # Database file
-DIR = os.path.expanduser("~/.nusgmon")
+DIR = "/var/lib/nusgmon"
 DB_FILE = os.path.join(DIR, "db.sqlite")
 
 # Config file
