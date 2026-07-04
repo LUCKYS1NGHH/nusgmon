@@ -45,7 +45,7 @@ info "Installing nusgmon.."
 mkdir -p "$CONFIG_DIR"
 install -m 755 nusgmon "$BIN_PATH"
 install -m 644 nusgmon.service "$SERVICE_DIR/nusgmon.service"
-install -m 544 config.toml "$CONFIG_DIR/config.toml"
+install -m 644 config.toml "$CONFIG_DIR/config.toml"
 
 chmod 755 "$CONFIG_DIR"
 
@@ -56,5 +56,28 @@ systemctl enable --now nusgmon
 systemctl is-active --quiet nusgmon \
     && info "Service is running." \
     || warn "Service may not have started. Check: systemctl status nusgmon"
+
+
+# check for old path of nusgmon (~/.nusgmon)
+if [ -d "/home/$SUDO_USER/.nusgmon" ] && [ -f "/home/$SUDO_USER/.nusgmon/db.sqlite" ]; then
+	echo -e "\n\e[1;37mYou have /home/$SUDO_USER/.nusgmon which takes your old data of your bandwidth usage\nAnd the new path for it is /var/lib/nusgmon\n\e[0m"
+	read -p "Copy it to new path (/var/lib/nusgmon) ? [y/n]: " choice
+
+	if [[ "$choice" == "y" ]]; then
+		mkdir -p /var/lib/nusgmon
+		chmod 755 /var/lib/nusgmon
+
+		# force sqlite wal checkpoint to get full data in main DB file before copying
+                python3 -c "import sqlite3; c=sqlite3.connect('/home/$SUDO_USER/.nusgmon/db.sqlite'); c.execute('PRAGMA wal_checkpoint(TRUNCATE);'); c.close()"
+
+		# now copy and set permissions nicely
+		cp /home/$SUDO_USER/.nusgmon/db.sqlite /var/lib/nusgmon/db.sqlite
+		chmod 644 /var/lib/nusgmon/db.sqlite
+
+		echo
+		info "Database file copied to new path."
+	fi
+        echo
+fi
 
 info "Done! Interval set to ${interval}s."
