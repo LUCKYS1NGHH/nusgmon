@@ -91,7 +91,7 @@ yay -R nusgmon-git
 ```
 
 > Optional (removes the database):
-> `rm -rf ~/.nusgmon`
+> `rm -rf /var/lib/nusgmon`
 
 #### Other Distro
 
