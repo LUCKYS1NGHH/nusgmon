@@ -5,7 +5,7 @@
 usage_graph_style = "bar"
 
 # Default display unit: 'kb', 'mb', 'gb'
-default_unit = "kb"
+default_unit = "mb"
 
 # Default usage view, if no argument is given.
 # available: 'yesterday', 'today', 'thisweek', 'month'
