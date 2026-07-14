@@ -12,6 +12,10 @@ if [[ ! "$EUID" -eq 0 ]]; then
     exit 1
 fi
 
+
+REAL_HOME=$(getent passwd "${SUDO_USER:-$USER}" | cut -d: -f6)
+
+
 # preflight checks
 [[ -f nusgmon ]]         || die "nusgmon binary not found. Run this from the repo root."
 [[ -f nusgmon.service ]] || die "nusgmon.service not found. Run this from the repo root."
@@ -39,15 +43,26 @@ done
 # install system wide
 SERVICE_DIR="/etc/systemd/system"
 BIN_PATH="/usr/local/bin/nusgmon"
-CONFIG_DIR="/etc/nusgmon"
+ROOT_CONFIG_DIR="/etc/nusgmon"
+USER_CONFIG_DIR="$REAL_HOME/.config/nusgmon"
 
 info "Installing nusgmon.."
-mkdir -p "$CONFIG_DIR"
+mkdir -p "$ROOT_CONFIG_DIR"
+mkdir -p "$USER_CONFIG_DIR"
+
 install -m 755 nusgmon "$BIN_PATH"
 install -m 644 nusgmon.service "$SERVICE_DIR/nusgmon.service"
-install -m 644 config.toml "$CONFIG_DIR/config.toml"
 
-chmod 755 "$CONFIG_DIR"
+if [[ ! -f "$ROOT_CONFIG_DIR/config.toml" ]]; then
+   install -m 644 config.toml "$ROOT_CONFIG_DIR/config.toml"
+fi
+
+if [[ ! -f "$USER_CONFIG_DIR/config.toml" ]]; then
+   install -m 644 config.toml "$USER_CONFIG_DIR/config.toml"
+fi
+
+
+chmod 755 "$ROOT_CONFIG_DIR" "$USER_CONFIG_DIR"
 
 sed -i "s|^ExecStart=.*|ExecStart=$BIN_PATH record -w $interval|" "$SERVICE_DIR/nusgmon.service"
 
