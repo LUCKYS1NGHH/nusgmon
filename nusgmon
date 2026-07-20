@@ -70,8 +70,15 @@ if CFG_FILE and os.path.isfile(CFG_FILE):
         print(f"\n{RED}Config error: {e}{RESET}")
         sys.exit(1)
 else:
-    conf = {'config': {}}
-
+    conf = {'config': {
+                'usage_graph_style': 'bar',
+                'default_unit': 'mb',
+                'default_view': 'today',
+                'save_records_after': 7,
+                'startup_grace_period': 10,
+                'record_iface': ['wlp2s0', 'enp2s0']
+                }
+            }
 
 # remove tomllib and it's relateds after got the config's json safely
 del tomllib, TOMLDecodeError
