@@ -87,7 +87,7 @@ if [ -d "/home/$SUDO_USER/.nusgmon" ] && [ -f "/home/$SUDO_USER/.nusgmon/db.sqli
 
 		# now copy and set permissions nicely
 		cp /home/$SUDO_USER/.nusgmon/db.sqlite /var/lib/nusgmon/db.sqlite
-		chmod 644 /var/lib/nusgmon/db.sqlite
+		chmod 664 /var/lib/nusgmon/*
 
 		echo
 		info "Database file copied to new path."

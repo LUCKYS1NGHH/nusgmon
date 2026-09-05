@@ -6,12 +6,13 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 from tomllib import TOMLDecodeError
 
-VERSION = "1.10.4"
+VERSION = "1.10.5"
 
 
 BOLD = "\033[1m"
 DIM = "\033[2m"
 RED = "\033[91m"
+YELLOW = "\033[33m"
 BLUE = "\033[94m"
 GREEN = "\033[32m"
 RESET = "\033[0m"
@@ -33,15 +34,37 @@ else:
 
 CFG_FILE = os.path.join(CFG_DIR, "config.toml") if CFG_DIR else None
 
-os.makedirs(DIR, exist_ok=True)
-os.makedirs(CFG_DIR, exist_ok=True) if CFG_DIR else None
+try:
+    os.makedirs(DIR, exist_ok=True)
+    os.makedirs(CFG_DIR, exist_ok=True) if CFG_DIR else None
+    if os.geteuid() == 0:
+        uid = int(os.environ.get("SUDO_UID", 0))
+        gid = int(os.environ.get("SUDO_GID", 0))
+        if uid and gid:
+            os.chmod(DIR, 0o754)
+            os.chown(DIR, uid, gid)
+            os.chmod(CFG_DIR, 0o754)
+            os.chown(CFG_DIR, uid, gid)
 
+except PermissionError:
+    print(f"{YELLOW}Please run the nusgmon as root once, I have to create few directories{RESET}")
+    sys.exit(1)
 
 VIRTUAL_IFACE_PREFIXES = ("tun", "tap", "wg", "virbr", "docker", "veth", "br-", "lo")
 
 db_lock = threading.Lock()
-conn = sqlite3.connect(DB_FILE, check_same_thread=False)
-cur = conn.cursor()
+try:
+    conn = sqlite3.connect(DB_FILE, check_same_thread=False)
+    if os.geteuid() == 0:
+        uid = int(os.environ.get("SUDO_UID", 0))
+        gid = int(os.environ.get("SUDO_GID", 0))
+        os.chmod(DB_FILE, 0o664)
+        if uid and gid:
+            os.chown(DB_FILE, uid, gid)
+    cur = conn.cursor()
+except sqlite3.OperationalError as e:
+    print(f"{YELLOW}{e}{RESET}")
+    sys.exit(1)
 
 cur.execute("""
 CREATE TABLE IF NOT EXISTS data_usage (
