@@ -2,7 +2,7 @@
 Lightweight Python CLI (command-line interface) network usage monitor for Linux.
 Designed to run as a `systemd` service.
 
-[![Version 1.10.5](https://img.shields.io/badge/nusgmon-1.10.5-green.svg)](https://github.com/LUCKYS1NGHH/nusgmon)
+[![Version 1.11.0](https://img.shields.io/badge/nusgmon-1.11.0-green.svg)](https://github.com/LUCKYS1NGHH/nusgmon)
 [![GitHub Stars](https://img.shields.io/github/stars/LUCKYS1NGHH/nusgmon?style=social)](https://github.com/LUCKYS1NGHH/nusgmon/stargazers)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
@@ -31,6 +31,14 @@ View usage after certain date:
 
 `nusgmon --since 2026-03-15`
 
+Export this week's usage to a JSON file:
+
+`nusgmon --thisweek --export week.json`
+
+Export all raw records as JSON:
+
+`nusgmon db --export raw.json`
+
 Prune records before 30 days:
 
 `nusgmon db --prune 30`
@@ -48,6 +56,8 @@ Prune records before 30 days:
 - Graph style options for statistics
 
 - JSON output for scripting
+
+- JSON export of usage stats and raw records to a file
 
 - Works with systemd
 

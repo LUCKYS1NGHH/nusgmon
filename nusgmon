@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 from tomllib import TOMLDecodeError
 
-VERSION = "1.10.5"
+VERSION = "1.11.0"
 
 
 BOLD = "\033[1m"
@@ -266,6 +266,108 @@ def log_net_usage(wait=None, dry_run=False, verbose=False, json_output=False, if
         t.join()
 
 
+def build_export_payload(data, total, title, unit, iface, t_start, t_end, total_up, total_down):
+    """Build the JSON payload used by --export."""
+
+    return {
+        "meta": {
+            "title": title,
+            "interface": iface or "all",
+            "unit": unit,
+            "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "range": {
+                "from": fmt_unixtime(t_start),
+                "to": fmt_unixtime(min(t_end, int(time.time()) + 1))
+            }
+        },
+        "usage": data,
+        "total": {
+            "up": round(total["up"], 2),
+            "down": round(total["down"], 2)
+        },
+        "total_bytes": {
+            "sent": total_up,
+            "recv": total_down
+        }
+    }
+
+
+def write_export(path, payload):
+    """Write the export payload to a file, or stdout when path is '-'."""
+
+    text = json.dumps(payload, indent=2)
+    count = payload.get("meta", {}).get("records", len(payload["usage"]))
+
+    if path == "-":
+        print(text)
+        return True
+
+    parent = os.path.dirname(os.path.abspath(path))
+    if parent and not os.path.isdir(parent):
+        print(f"\n{RED}Export error: directory '{parent}' does not exist.{RESET}\n")
+        return False
+
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(text + "\n")
+    except OSError as e:
+        print(f"\n{RED}Export error: {e}{RESET}\n")
+        return False
+
+    print(f"\n{GREEN}Exported {count:,} record(s) to {path}{RESET}")
+    return True
+
+
+def open_export(path):
+    """Open an export target. Returns (stream, is_file)."""
+
+    if path == "-":
+        return sys.stdout, False
+
+    parent = os.path.dirname(os.path.abspath(path))
+    if parent and not os.path.isdir(parent):
+        print(f"\n{RED}Export error: directory '{parent}' does not exist.{RESET}\n")
+        return None, False
+
+    try:
+        return open(path, "w", encoding="utf-8"), True
+    except OSError as e:
+        print(f"\n{RED}Export error: {e}{RESET}\n")
+        return None, False
+
+
+def stream_export(path, records_iter, meta):
+    """Stream records as JSON one at a time to keep memory flat."""
+
+    stream, is_file = open_export(path)
+    if stream is None:
+        return False
+
+    count = 0
+    try:
+        stream.write("{\n")
+        stream.write('  "meta": ' + json.dumps(meta) + ",\n")
+        stream.write('  "usage": [\n')
+        for rec in records_iter:
+            if count:
+                stream.write(",\n")
+            stream.write("    " + json.dumps(rec))
+            count += 1
+            if is_file:
+                stream.flush()
+        stream.write("\n  ]\n}\n")
+    except OSError as e:
+        print(f"\n{RED}Export error: {e}{RESET}\n")
+        return False
+    finally:
+        if is_file:
+            stream.close()
+
+    if is_file:
+        print(f"\n{GREEN}Exported {count:,} record(s) to {path}{RESET}")
+    return True
+
+
 def _to_spark(values):
     """Map a list of floats to sparkline characters."""
     if not values:
@@ -399,7 +501,7 @@ def draw_graph(data, title, total, config, kb_show=False, gb_show=False):
     print(f"\nTotal: {total['up']:.2f}↑ {total['down']:.2f}↓ {unit}")
 
 
-def fetch_net_usage(config, yesterday=False, today=False, thisweek=False, json_output=False, kb_show=False, gb_show=False, since=None, month=None, date=None, style=None, iface=None):
+def fetch_net_usage(config, yesterday=False, today=False, thisweek=False, json_output=False, kb_show=False, gb_show=False, since=None, month=None, date=None, style=None, iface=None, export=None):
     now = datetime.now()
 
     if yesterday:
@@ -557,12 +659,15 @@ def fetch_net_usage(config, yesterday=False, today=False, thisweek=False, json_o
         "norm": draw_norm
     }
 
+    if export:
+        write_export(export, build_export_payload(data, total, title, unit, iface, t_start, t_end, total_up, total_down))
+
     if json_output:
         data["total"] = [total]
         data['unit'] = unit
         pretty = json.dumps(data, indent=3)
         print(pretty)
-    else:
+    elif not export:
         usg_graph_style_cfg = conf['config'].get('usage_graph_style')
         renderer = (GRAPH_STYLES.get(style) or
             GRAPH_STYLES.get(usg_graph_style_cfg if isinstance(usg_graph_style_cfg, str) else '', draw_graph))
@@ -615,6 +720,46 @@ def db_stats(json_output=False):
         print(f"  {'Least Traffic':<18} {fmt_lt}")
 
 
+def db_export(path):
+    count = cur.execute("SELECT COUNT(*) FROM data_usage").fetchone()[0]
+
+    meta = {
+        "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "database": DB_FILE,
+        "records": count
+    }
+
+    rows = cur.execute("""
+        SELECT timestamp, bytes_sent, bytes_recv, iface
+        FROM data_usage
+        ORDER BY timestamp ASC
+    """)
+
+    def records():
+        for t, s, r, i in rows:
+            yield {
+                "timestamp": t,
+                "datetime": fmt_unixtime(t),
+                "bytes_sent": s,
+                "bytes_recv": r,
+                "bytes_sent_mb": round(to_mb(s), 4),
+                "bytes_recv_mb": round(to_mb(r), 4),
+                "iface": i or "all"
+            }
+
+    stream_export(path, records(), meta)
+
+
+def record_export(path, iface=None):
+    counters = get_iface_counters(iface)
+    if counters is None:
+        return
+    payload = json.loads(current_data_json_output(
+        counters.bytes_recv, counters.bytes_sent, 0, 0, iface or "all"
+    ))
+    write_export(path, {"meta": {"generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}, "usage": [payload]})
+
+
 def db_prune(days):
     cutoff = int((datetime.now() - timedelta(days=days)).timestamp())
     format_cutoff = datetime.fromtimestamp(cutoff).strftime("%Y %d %b")
@@ -629,6 +774,12 @@ def db_prune(days):
     conn.execute("VACUUM")
     print(f"{BOLD}{GREEN}Pruned {deleted:,} records older than {days} days.{RESET}")
 
+
+import signal as _signal
+try:
+    _signal.signal(_signal.SIGPIPE, _signal.SIG_DFL)
+except (AttributeError, ValueError):
+    pass
 
 parser = argparse.ArgumentParser(
     prog="nusgmon",
@@ -646,7 +797,10 @@ parser = argparse.ArgumentParser(
             "  nusgmon --thisweek --json                         This week as JSON\n"
             "  nusgmon --since 2026-04-14 -g                     Since date, in GB\n"
             "  nusgmon --today --style compact                   Today usage in compact graph style\n"
+            "  nusgmon --thisweek --export week.json              Export this week's usage to a JSON file\n"
             "  nusgmon db --stats                                Database info\n"
+            "  nusgmon db --export raw.json                      Export all raw records as JSON\n"
+            "  nusgmon record --export live.json                 Dump current counters as JSON and exit\n"
             "  nusgmon record --iface eth0                       Record only the eth0 (Ethernet) interface data usage\n"
             "  nusgmon --iface wlan0 --style compact --thisweek  Show current week's usage in compact style of only wlan0 (WiFi) interface"
     ))
@@ -659,11 +813,13 @@ record_parser.add_argument("-d", "--dry-run", action="store_true", help="prevent
 record_parser.add_argument("-v", "--verbose", action="store_true", help="enable verbose output")
 record_parser.add_argument("--json", action="store_true", help="output data JSON format")
 record_parser.add_argument("--iface", type=str, nargs="+", default=None, help="interface(s) to record (default all in bundle)")
+record_parser.add_argument("--export", type=str, metavar="FILE", help="write current counters as JSON to FILE ('-' for stdout), then exit")
 
 db_parser = sub.add_parser("db", help="Database maintenance")
 db_parser.add_argument("--stats", action="store_true", help="show database stats")
 db_parser.add_argument("--json", action="store_true", help="output data JSON format")
 db_parser.add_argument("--prune", type=int, metavar="DAYS", help="delete data older than N days")
+db_parser.add_argument("--export", type=str, metavar="FILE", help="export raw records as JSON to FILE ('-' for stdout)")
 
 parser.add_argument("-y", "--yesterday", action="store_true", help="show yesterday's usage")
 parser.add_argument("-t", "--today", action="store_true", help="show today's usage")
@@ -677,6 +833,7 @@ parser.add_argument("-S", "--since", type=str, help="show data usage after a cer
 parser.add_argument("-s", "--style", choices=["bar", "compact", "spark", "norm"], help="graph display style (default: bar)")
 parser.add_argument("-V", "--version", action="version", version=f'v{VERSION}')
 parser.add_argument("-i", "--iface", type=str, help="View a specific interface data usage only (default all in bundle)")
+parser.add_argument("-e", "--export", type=str, metavar="FILE", help="export usage data as JSON to FILE ('-' for stdout)")
 
 sub.add_parser("interfaces", help="List available network interfaces")
 
@@ -686,30 +843,38 @@ args = parser.parse_args()
 if args.command in ("record", "db", "interfaces"):
     try:
         if args.command == "record":
-            ifaces = args.iface or [None] # none means all combined
-            if len(ifaces) == 1:
-                log_net_usage(args.wait, args.dry_run, args.verbose, args.json, ifaces[0])
+            if getattr(args, "export", None):
+                if args.iface and len(args.iface) > 1:
+                    print(f"\n{RED}--export accepts a single interface.{RESET}\n")
+                else:
+                    record_export(args.export, args.iface[0] if args.iface else None)
             else:
-                threads = []
-                for iface in ifaces:
-                    t = threading.Thread(target=log_net_usage, args=(args.wait, args.dry_run, args.verbose, False, iface), daemon=True)
-                    t.start()
-                    threads.append(t)
-                for t in threads:
-                    t.join()
+                ifaces = args.iface or [None] # none means all combined
+                if len(ifaces) == 1:
+                    log_net_usage(args.wait, args.dry_run, args.verbose, args.json, ifaces[0])
+                else:
+                    threads = []
+                    for iface in ifaces:
+                        t = threading.Thread(target=log_net_usage, args=(args.wait, args.dry_run, args.verbose, False, iface), daemon=True)
+                        t.start()
+                        threads.append(t)
+                    for t in threads:
+                        t.join()
         elif args.command == "interfaces":
             list_interfaces()
 
         else:
             if args.prune:
                 db_prune(args.prune)
+            elif args.export:
+                db_export(args.export)
             else:
                 db_stats(json_output=args.json)
     finally:
         conn.commit()
         conn.close()
 else:
-    fetch_kwargs = dict(json_output=args.json, kb_show=args.kilobyte, gb_show=args.gigabyte, style=args.style, iface=args.iface)
+    fetch_kwargs = dict(json_output=args.json, kb_show=args.kilobyte, gb_show=args.gigabyte, style=args.style, iface=args.iface, export=args.export)
     fetch_net_usage(
         conf,
         yesterday = args.yesterday or False,
